@@ -331,6 +331,7 @@ svg{display:block;overflow:visible}
       <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/><path d="M3 3l18 18"/></svg>
       <h1 id="permT">Konum izni gerekli</h1>
       <p id="permP">Hız, yön ve yol bilgisi yalnızca telefonunun GPS'inden gelir. İzin verilene kadar HUD çalışamaz.</p>
+      <p id="permE" style="font-size:13px;color:#6b7383"></p>
       <ol id="permL"><li>Adres çubuğundaki kilit (veya ayar) simgesine dokun</li><li>İzinler → Konum → İzin ver</li><li>Samsung'da ayrıca Ayarlar → Konum'un açık olduğunu kontrol et</li><li>Aşağıdan tekrar dene</li></ol>
       <button class="cta" id="permRetry">Tekrar dene</button>
     </div>
@@ -507,7 +508,13 @@ function onPos(p){
   handleFix({lat:c.latitude,lon:c.longitude,acc:c.accuracy,t:p.timestamp||Date.now(),v:c.speed==null||isNaN(c.speed)?null:c.speed*3.6,h:c.heading==null||isNaN(c.heading)?null:c.heading});
 }
 function onErr(e){
-  if(e.code===1)showPerm('denied');
+  $('#permE').textContent='Tarayıcı yanıtı: '+(e.code===1?'izin reddedildi':e.code===2?'konum alınamadı':'zaman aşımı')+(e.message?' ('+e.message+')':'');
+  if(e.code===1){showPerm('denied');scheduleRetry()}
+}
+let retryT=null;
+function scheduleRetry(){
+  clearTimeout(retryT);
+  retryT=setTimeout(()=>{if($('#perm').classList.contains('on')){startGPS();scheduleRetry()}},4000);
 }
 function handleFix(f){
   hidePerm();
@@ -948,8 +955,12 @@ function showPerm(kind){
     $('#permP').textContent='Hız, yön ve yol bilgisi yalnızca telefonunun GPS\'inden gelir. Düğmeye basınca çıkan pencerede "İzin ver"i seç.';
     L.style.display='none'; B.textContent='İzin ver';
   }else{
+    const ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
     $('#permT').textContent='Konum izni kapalı';
-    $('#permP').textContent='Chrome bu site için konumu engellemiş. İzni açman gerekiyor:';
+    $('#permP').textContent=ios?'Safari bu site için konumu vermiyor. İki ayarın da açık olması gerekiyor:':'Chrome bu site için konumu engellemiş. İzni açman gerekiyor:';
+    L.innerHTML=ios
+      ?'<li>Ayarlar → Gizlilik ve Güvenlik → Konum Servisleri: <b>açık</b></li><li>Aynı ekranda Safari Web Siteleri → <b>Uygulamayı Kullanırken</b></li><li>Safari\'de adres çubuğundaki <b>aA</b> → Web Sitesi Ayarları → Konum → <b>İzin ver</b></li><li>Ana ekran uygulamasındaysan Konum Servisleri listesinde HUD\'a da izin ver</li><li>Geri dön; ekran kendiliğinden açılır</li>'
+      :'<li>Adres çubuğundaki kilit (veya ayar) simgesine dokun</li><li>İzinler → Konum → İzin ver</li><li>Samsung\'da Ayarlar → Konum\'un açık olduğunu kontrol et</li><li>Geri dön; ekran kendiliğinden açılır</li>';
     B.textContent='Tekrar dene';
   }
   $('#perm').classList.add('on');
@@ -962,16 +973,14 @@ function askLocation(){
 $('#permRetry').onclick=askLocation;
 async function initGPS(){
   if(!navigator.geolocation)return showPerm('unsupported');
-  let state='prompt';
   try{
     const ps=await navigator.permissions.query({name:'geolocation'});
-    state=ps.state;
-    ps.onchange=()=>{if(ps.state==='granted'){hidePerm();startGPS()}else if(ps.state==='denied')showPerm('denied')};
+    ps.onchange=()=>{if(ps.state==='granted'){hidePerm();startGPS()}};
+    if(ps.state==='prompt')showPerm('prompt');
   }catch(e){}
-  if(state==='granted')startGPS();
-  else if(state==='denied')showPerm('denied');
-  else{showPerm('prompt');askLocation()}
+  startGPS();   // durum ne olursa olsun gerçekten dene; hata gelirse izin ekranı açılır
 }
+
 /* ───────── menü ───────── */
 const bar=$('#bar'); let barT=null;
 function showBar(){bar.classList.add('on');clearTimeout(barT);barT=setTimeout(()=>bar.classList.remove('on'),6000)}

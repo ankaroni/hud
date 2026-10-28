@@ -113,12 +113,27 @@ svg{display:block;overflow:visible}
 .dial b{position:absolute;inset:0;display:grid;place-items:center;font:700 clamp(18px,5.2dvh,34px)/1 var(--f-num);letter-spacing:.04em}
 .deg{font:500 clamp(14px,3.3dvh,22px) var(--f-num);color:var(--dim);font-variant-numeric:tabular-nums;letter-spacing:.06em}
 
+/* nav map */
+.navmap{display:none;width:100%;aspect-ratio:1/1;max-height:46dvh;position:relative;
+  -webkit-mask-image:radial-gradient(ellipse 100% 96% at 50% 90%,#000 62%,transparent 100%);
+  mask-image:radial-gradient(ellipse 100% 96% at 50% 90%,#000 62%,transparent 100%)}
+.navmap.on{display:block}
+.mapin{position:absolute;inset:0;transform:perspective(520px) rotateX(42deg);transform-origin:50% 86%}
+.mapin svg{width:100%;height:100%}
+#world{transition:transform 1s linear}
+#world path{fill:none;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+#rtDim{stroke:var(--fg);stroke-width:8;opacity:.25}
+#rtHi{stroke:var(--fg);stroke-width:10;opacity:.95}
+#rtGlow{stroke:var(--red);stroke-width:18;opacity:.18}
+#mv{fill:var(--red);opacity:.95}
+#car{fill:var(--red);stroke:#000;stroke-width:2}
+.near-turn #rtHi{stroke:var(--red)}
 /* nav */
 .nav{display:none;align-items:center;gap:12px;flex-direction:row-reverse}
 .nav.on{display:flex}
-.nav .arr{width:calc(var(--sign)*.78);height:calc(var(--sign)*.78);flex:none;color:var(--fg);filter:drop-shadow(0 0 8px var(--glow))}
+.nav .arr{width:calc(var(--sign)*.52);height:calc(var(--sign)*.52);flex:none;color:var(--fg);filter:drop-shadow(0 0 8px var(--glow))}
 .nav .arr svg{width:100%;height:100%;transition:transform .3s}
-.nav .nd{font:700 clamp(26px,8dvh,52px)/.9 var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap}
+.nav .nd{font:700 clamp(24px,6.5dvh,44px)/.9 var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap}
 .nav .ns{font:500 clamp(12px,2.8dvh,18px)/1.15 var(--f-txt);color:var(--dim);max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px}
 .nav.near .nd{color:var(--red)}
 .nav.near .arr{color:var(--red)}
@@ -249,6 +264,9 @@ svg{display:block;overflow:visible}
       </div>
       <div class="deg" id="deg">---°</div>
     </div>
+    <div class="navmap" id="navmap"><div class="mapin"><svg viewBox="0 0 200 200" aria-hidden="true">
+      <g id="world"><path id="rtDim"/><path id="rtGlow"/><path id="rtHi"/><circle id="mv" r="14"/></g>
+      <path id="car" d="M100 136 L110 160 L100 154 L90 160 Z"/></svg></div></div>
     <div class="nav" id="nav">
       <div class="arr" id="arr"></div>
       <div><div class="nd" id="nd">–</div><div class="ns" id="ns"></div></div>
@@ -625,9 +643,11 @@ function showManeuver(m,dist,name){
   $('#nd').textContent=d;
   $('#ns').textContent=name||'';
   $('#nav').classList.add('on'); $('#nav').classList.toggle('near',dist<150);
+  $('#navmap').classList.add('on'); $('#navmap').classList.toggle('near-turn',dist<150);
+  nav.dist=dist;
   document.querySelector('.compass').style.display='none';
 }
-function hideManeuver(){$('#nav').classList.remove('on');document.querySelector('.compass').style.display=''}
+function hideManeuver(){$('#nav').classList.remove('on');$('#navmap').classList.remove('on');nav.anchor=null;document.querySelector('.compass').style.display=''}
 function fmtNavDist(m){
   if(m>=1000)return (m/1000).toFixed(1).replace('.',',')+' km';
   if(m>=200)return Math.round(m/50)*50+' m';
@@ -642,7 +662,7 @@ async function startRoute(dest){
     if(!j.routes||!j.routes[0]){setNavMsg('Bu hedefe rota bulunamadı.');return false}
     const rt=j.routes[0];
     nav.route={steps:rt.legs[0].steps,geom:rt.geometry.coordinates.map(c=>({lon:c[0],lat:c[1]}))};
-    nav.idx=0; nav.dest=dest; nav.off=0; nav.lastReroute=Date.now();
+    nav.idx=0; nav.gi=0; nav.anchor=null; nav.dest=dest; nav.off=0; nav.lastReroute=Date.now();
     $('#navLbl').textContent='Rota'; $('#navStop').style.display='';
     navTick(f);
     return true;
@@ -660,13 +680,46 @@ function navTick(f){
   }
   const next=steps[Math.min(nav.idx+1,steps.length-1)];
   const m=next.maneuver, dist=hav(f,{lat:m.location[1],lon:m.location[0]});
-  if(m.type==='arrive'&&dist<20){showManeuver(m,dist,'');setTimeout(stopRoute,6000);return}
+  if(m.type==='arrive'&&dist<20){showManeuver(m,dist,'');updateMap(f);setTimeout(stopRoute,6000);return}
   showManeuver(m,dist,next.name||'');
+  updateMap(f);
   // off-route detection
   const g=nav.route.geom; let dmin=1e9;
   for(let i=0;i<g.length-1;i+=1){const d=segDist(f,g[i],g[i+1]);if(d<dmin)dmin=d;if(dmin<15)break}
   nav.off=dmin>70?nav.off+1:0;
   if(nav.off>=3&&Date.now()-nav.lastReroute>15000&&nav.dest){nav.lastReroute=Date.now();startRoute(nav.dest)}
+}
+function drawMap(f){
+  const g=nav.route.geom, steps=nav.route.steps;
+  let gi=nav.gi||0, best=1e12;
+  const lim=Math.min(g.length-1,gi+400);
+  for(let i=gi;i<lim;i++){const d=segDist(f,g[i],g[i+1]);if(d<best){best=d;gi=i}}
+  nav.gi=gi;
+  const K=Math.cos(f.lat*rad)*111320, M=110574;
+  const rel=p=>[(p.lon-f.lon)*K,-(p.lat-f.lat)*M];
+  const pts=[[0,0]]; let acc=0, prev=g[gi];
+  for(let i=gi+1;i<g.length&&acc<1400;i++){acc+=hav(prev,g[i]);prev=g[i];pts.push(rel(g[i]))}
+  const nx=steps[Math.min(nav.idx+1,steps.length-1)].maneuver.location;
+  const ml=[(nx[0]-f.lon)*K,-(nx[1]-f.lat)*M];
+  let mi=pts.length-1,bd=1e12;
+  pts.forEach((q,i)=>{const d=(q[0]-ml[0])**2+(q[1]-ml[1])**2;if(d<bd){bd=d;mi=i}});
+  const D=a=>a.length<2?'':'M'+a.map(q=>q[0].toFixed(1)+' '+q[1].toFixed(1)).join('L');
+  $('#rtHi').setAttribute('d',D(pts.slice(0,mi+1)));
+  $('#rtGlow').setAttribute('d',D(pts.slice(0,mi+1)));
+  $('#rtDim').setAttribute('d',D(pts.slice(mi)));
+  const mv=$('#mv'); mv.setAttribute('cx',ml[0].toFixed(1)); mv.setAttribute('cy',ml[1].toFixed(1));
+  nav.anchor={lat:f.lat,lon:f.lon}; nav.drawIdx=nav.idx;
+  return true;
+}
+function updateMap(f){
+  const w=$('#world'); let fresh=false;
+  if(!nav.anchor||nav.drawIdx!==nav.idx||hav(nav.anchor,f)>250){drawMap(f);fresh=true}
+  const a=nav.anchor, K=Math.cos(a.lat*rad)*111320, M=110574;
+  const px=(f.lon-a.lon)*K, py=-(f.lat-a.lat)*M;
+  const R=clamp((nav.dist||200)*1.1+40,130,420), sc=(150/R).toFixed(4);
+  if(fresh)w.style.transition='none';
+  w.style.transform=`translate(100px,150px) rotate(${(-headU).toFixed(1)}deg) scale(${sc}) translate(${(-px).toFixed(1)}px,${(-py).toFixed(1)}px)`;
+  if(fresh){void w.getBoundingClientRect();w.style.transition=''}
 }
 const setNavMsg=t=>{$('#navMsg').textContent=t||''};
 async function search(){
@@ -757,21 +810,32 @@ $$('#themeSeg button').forEach(b=>b.onclick=()=>{S.theme=b.dataset.v;save();appl
 $$('.step button').forEach(b=>b.onclick=()=>{S.tol=clamp(S.tol+ +b.dataset.d,0,30);save();$('#tolOut').textContent=S.tol;render()});
 
 /* ───────── demo ───────── */
+function demoRoute(lat,lon,hd,leg,right){
+  const K=111320*Math.cos(lat*rad), M=110574;
+  const mv=(p,h,d)=>({lat:p.lat+d*Math.cos(h*rad)/M,lon:p.lon+d*Math.sin(h*rad)/K});
+  const A={lat,lon}, B=mv(A,hd,leg), h2=hd+(right?90:-90), C=mv(B,h2,900), h3=h2+(right?-60:60), D=mv(C,h3,800);
+  const geom=[]; const seg=(a,b)=>{const n=Math.ceil(hav(a,b)/25);for(let i=0;i<n;i++)geom.push({lat:a.lat+(b.lat-a.lat)*i/n,lon:a.lon+(b.lon-a.lon)*i/n})};
+  seg(A,B);seg(B,C);seg(C,D);geom.push(D);
+  const L=p=>[p.lon,p.lat];
+  return {geom,steps:[
+    {maneuver:{location:L(A),type:'depart'},name:'Barbaros Bulvarı'},
+    {maneuver:{location:L(B),type:'turn',modifier:right?'right':'left'},name:'Bağdat Caddesi'},
+    {maneuver:{location:L(C),type:'turn',modifier:right?'slight left':'slight right'},name:'Moda Caddesi'},
+    {maneuver:{location:L(D),type:'arrive'},name:''}]};
+}
 function startDemo(){
   let t=0, lat=41.0082, lon=28.9784, hd=70;
   const fixedV=P.get('v')!=null?+P.get('v'):null, fixedL=P.get('lim')!=null?+P.get('lim'):null;
   const roads=[['Barbaros Bulvarı',70],['Büyükdere Caddesi',50],['O-1 Otoyolu',120],['Bağdat Caddesi',60]];
-  if(P.get('nav')!=='0'){
-    nav.demo=true;
-    const mnv={type:'turn',modifier:P.get('turn')||'right'};
-    let dd=P.get('nd')!=null?+P.get('nd'):480;
-    showManeuver(mnv,dd,'Bağdat Caddesi');
-    if(P.get('nd')==null)setInterval(()=>{dd=dd<=20?900:dd-18;showManeuver(mnv,dd,'Bağdat Caddesi')},1000);
+  const navOn=P.get('nav')!=='0';
+  if(navOn){
+    const leg=P.get('nd')!=null?+P.get('nd'):700, right=(P.get('turn')||'right').includes('right');
+    nav.route=demoRoute(lat,lon,hd,leg,right); nav.idx=0; nav.gi=0; nav.dest=null; $('#navStop').style.display='';
   }
   const step=()=>{
     t++;
     const v=fixedV!=null?fixedV:78+52*Math.sin(t/9);
-    hd=(hd+(fixedV!=null?0:1.8))%360;
+    hd=(hd+(fixedV!=null||navOn?0:1.8))%360;
     const dm=v/3.6;
     lat+=dm*Math.cos(hd*rad)/110574; lon+=dm*Math.sin(hd*rad)/(111320*Math.cos(lat*rad));
     handleFix({lat,lon,acc:6,t:Date.now(),v,h:hd});

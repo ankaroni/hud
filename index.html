@@ -331,7 +331,7 @@ svg{display:block;overflow:visible}
       <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/><path d="M3 3l18 18"/></svg>
       <h1 id="permT">Konum izni gerekli</h1>
       <p id="permP">Hız, yön ve yol bilgisi yalnızca telefonunun GPS'inden gelir. İzin verilene kadar HUD çalışamaz.</p>
-      <ol id="permL"><li>Adres çubuğundaki kilit simgesine dokun</li><li>İzinler → Konum → İzin ver</li><li>Aşağıdan tekrar dene</li></ol>
+      <ol id="permL"><li>Adres çubuğundaki kilit (veya ayar) simgesine dokun</li><li>İzinler → Konum → İzin ver</li><li>Samsung'da ayrıca Ayarlar → Konum'un açık olduğunu kontrol et</li><li>Aşağıdan tekrar dene</li></ol>
       <button class="cta" id="permRetry">Tekrar dene</button>
     </div>
   </div>
@@ -356,6 +356,7 @@ const pad=n=>String(n).padStart(2,'0');
 const NS='http://www.w3.org/2000/svg';
 const mk=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);parent&&parent.appendChild(e);return e};
 
+const hint=$('#hint'), t0=Date.now();
 /* ───────── gauge geometry ───────── */
 const CX=230,CY=225,R=180,A0=170,SWEEP=200,VMAX=240;
 const pt=(a,r)=>[CX+r*Math.cos(a*Math.PI/180),CY+r*Math.sin(a*Math.PI/180)];
@@ -553,6 +554,9 @@ function tick(){
   el.sigTxt.textContent=bars?'GPS':'GPS yok';
   el.gauge.classList.toggle('stale',!!st.lastFix&&age>15000);
   if(!S.demo&&st.lastFix&&age>15000&&st.speed!==0){st.speed=0;render()}
+  const noFix=!booting&&!P.get('at')&&Date.now()-Math.max(st.lastFix,t0)>12000&&!$('#perm').classList.contains('on');
+  hint.textContent=noFix?'GPS sinyali yok. Telefonun Konum ayarının açık olduğunu kontrol et.':'Menü için ekrana dokun';
+  if(noFix)hint.classList.add('on');
   if(S.theme==='auto')applyTheme();
   if(!booting)renderStats();
 }
@@ -933,13 +937,41 @@ function fullscreen(){
 
 /* ───────── izin ekranı ───────── */
 function showPerm(kind){
-  if(kind==='unsupported'){$('#permT').textContent='Konum desteklenmiyor';$('#permP').textContent='Bu tarayıcı konum servisini sunmuyor. Chrome ile aç.';$('#permL').style.display='none';$('#permRetry').style.display='none'}
+  const L=$('#permL'), B=$('#permRetry');
+  L.style.display=''; B.style.display='';
+  if(kind==='unsupported'){
+    $('#permT').textContent='Konum desteklenmiyor';
+    $('#permP').textContent='Bu tarayıcı konum servisini sunmuyor. Chrome ile aç.';
+    L.style.display='none'; B.style.display='none';
+  }else if(kind==='prompt'){
+    $('#permT').textContent='Konum izni gerekli';
+    $('#permP').textContent='Hız, yön ve yol bilgisi yalnızca telefonunun GPS\'inden gelir. Düğmeye basınca çıkan pencerede "İzin ver"i seç.';
+    L.style.display='none'; B.textContent='İzin ver';
+  }else{
+    $('#permT').textContent='Konum izni kapalı';
+    $('#permP').textContent='Chrome bu site için konumu engellemiş. İzni açman gerekiyor:';
+    B.textContent='Tekrar dene';
+  }
   $('#perm').classList.add('on');
 }
 function hidePerm(){$('#perm').classList.remove('on')}
-$('#permRetry').onclick=()=>{startGPS();
-  if(navigator.permissions)navigator.permissions.query({name:'geolocation'}).then(p=>{if(p.state==='denied')showPerm('denied')}).catch(()=>{})};
-
+function askLocation(){
+  if(!navigator.geolocation)return showPerm('unsupported');
+  navigator.geolocation.getCurrentPosition(p=>{hidePerm();onPos(p);startGPS()},e=>{if(e.code===1)showPerm('denied');else{hidePerm();startGPS()}},{enableHighAccuracy:true,timeout:20000,maximumAge:0});
+}
+$('#permRetry').onclick=askLocation;
+async function initGPS(){
+  if(!navigator.geolocation)return showPerm('unsupported');
+  let state='prompt';
+  try{
+    const ps=await navigator.permissions.query({name:'geolocation'});
+    state=ps.state;
+    ps.onchange=()=>{if(ps.state==='granted'){hidePerm();startGPS()}else if(ps.state==='denied')showPerm('denied')};
+  }catch(e){}
+  if(state==='granted')startGPS();
+  else if(state==='denied')showPerm('denied');
+  else{showPerm('prompt');askLocation()}
+}
 /* ───────── menü ───────── */
 const bar=$('#bar'); let barT=null;
 function showBar(){bar.classList.add('on');clearTimeout(barT);barT=setTimeout(()=>bar.classList.remove('on'),6000)}
@@ -1004,12 +1036,11 @@ function intro(done){
 
 /* ───────── başlat ───────── */
 applyTheme(); applyMirror(); applyMap(); renderSign(); renderStats(); tick();
-const hint=$('#hint');
 intro(()=>{
   render(); renderHeading();
   hint.classList.add('on'); setTimeout(()=>hint.classList.remove('on'),4000);
   if(P.get('intro')!=='0')showBar();
-  if(P.get('at')){window.__hud={st,MAP,TILES,get w(){return wantedOk}};startAt()} else startGPS();
+  if(P.get('at')){window.__hud={st,MAP,TILES,get w(){return wantedOk}};startAt()} else initGPS();
 });
 wake();
 // ilk dokunuşta tam ekran (tarayıcıda; kurulu uygulamada zaten tam ekran)

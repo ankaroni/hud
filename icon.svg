@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#000"/>
+  <path d="M96 352A176 176 0 1 1 416 352" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="22"/>
+  <path d="M96 352A176 176 0 0 1 300 84" fill="none" stroke="#EAF1FF" stroke-width="22"/>
+  <path d="M300 84A176 176 0 0 1 372 138" fill="none" stroke="#FF2D4B" stroke-width="22"/>
+  <rect x="204" y="404" width="104" height="10" fill="#E4002B"/>
+  <text x="256" y="318" text-anchor="middle" font-family="Arial Narrow,Helvetica Neue,Arial,sans-serif" font-weight="800" font-size="230" fill="#EAF1FF" textLength="190" lengthAdjust="spacingAndGlyphs">HUD</text>
+</svg>

@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>HUD</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700;800&family=Saira+Semi+Condensed:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#000;
+  --fg:#EAF1FF;
+  --dim:#7C8696;
+  --faint:rgba(234,241,255,.14);
+  --red:#FF2D4B;
+  --red-deep:#E4002B;
+  --glow:rgba(150,190,255,.32);
+  --sign-bg:#fff;
+  --sign-fg:#000;
+  --bright:1;
+  --f-num:"Saira Condensed","Arial Narrow","Roboto Condensed",sans-serif;
+  --f-txt:"Saira Semi Condensed","Saira Condensed","Arial Narrow","Roboto Condensed",sans-serif;
+}
+:root[data-theme="day"]{
+  --fg:#FFFFFF; --dim:#A9B3C4; --faint:rgba(255,255,255,.22); --red:#FF3B57; --glow:rgba(190,215,255,.5);
+}
+:root[data-theme="night"]{
+  --fg:#E0504A; --dim:#7A2D2B; --faint:rgba(224,80,74,.16); --red:#C41428; --red-deep:#9E0F20; --glow:rgba(224,60,50,.22);
+  --sign-bg:#A24742; --sign-fg:#FFE6E1; --bright:.72;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#000;color:var(--fg);overflow:hidden;font-family:var(--f-txt);
+  -webkit-user-select:none;user-select:none;touch-action:manipulation;overscroll-behavior:none}
+svg{display:block;overflow:visible}
+
+/* ───────── HUD ───────── */
+#hud{position:fixed;inset:0;display:grid;opacity:var(--bright);
+  padding:max(10px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+  grid-template-columns:minmax(0,1fr) var(--gw) minmax(0,1fr);
+  grid-template-rows:auto minmax(0,1fr) auto;
+  grid-template-areas:"top top top" "left gauge right" "stats stats stats";
+  --gw:min(54vw,calc((100dvh - 128px) * 1.586));
+  --sign:min(34dvh,20vw);
+}
+.mirror #hud{transform:scaleX(-1)}
+
+.top{grid-area:top;display:flex;justify-content:space-between;align-items:center;
+  font:500 clamp(16px,3.4dvh,24px)/1 var(--f-num);letter-spacing:.06em;color:var(--dim);padding-bottom:6px}
+.top .clock{font-variant-numeric:tabular-nums}
+.sig{display:flex;align-items:flex-end;gap:3px;height:16px}
+.sig i{width:4px;background:var(--faint);border-radius:1px;transition:background .3s}
+.sig i:nth-child(1){height:5px}.sig i:nth-child(2){height:8px}.sig i:nth-child(3){height:12px}.sig i:nth-child(4){height:16px}
+.sig i.on{background:var(--fg)}
+.sig.bad i.on{background:var(--red)}
+.sig-wrap{display:flex;align-items:center;gap:8px}
+.sig-wrap small{font:500 12px/1 var(--f-txt);letter-spacing:.04em}
+
+/* gauge */
+.gauge{grid-area:gauge;position:relative;align-self:center;justify-self:center;width:100%;aspect-ratio:460/290;container-type:inline-size}
+.gauge svg.arc{position:absolute;inset:0;width:100%;height:100%}
+.trk{fill:none;stroke:var(--faint);stroke-width:5}
+.fill{fill:none;stroke-width:5;stroke-dasharray:1000 1000;stroke-dashoffset:1000;transition:stroke-dashoffset .9s linear}
+.fill.w{stroke:var(--fg)}
+.fill.r{stroke:var(--red);opacity:0;transition:stroke-dashoffset .9s linear,opacity .6s linear}
+.tick{stroke:var(--fg);stroke-width:1.2;opacity:.34}
+.tick.maj{stroke-width:2;opacity:.7}
+.tlab{fill:var(--dim);font:500 13px var(--f-num);text-anchor:middle;dominant-baseline:middle}
+.mark{transform-box:view-box;transform-origin:230px 225px;transition:transform .6s cubic-bezier(.3,.7,.2,1),opacity .4s}
+.mark path{fill:var(--red)}
+.sweep-edge{stroke:var(--red);stroke-width:1.2;opacity:0}
+
+.speed{position:absolute;left:50%;top:53%;transform:translate(-50%,-50%);text-align:center;white-space:nowrap;z-index:1}
+.digits{display:inline-flex;font:800 35cqw/.8 var(--f-num);color:var(--fg);text-shadow:0 0 .22em var(--glow);transition:color .25s}
+.digits i{font-style:normal;display:inline-block;width:.5em;text-align:center}
+.digits i.h{display:none}
+.stale .digits{opacity:.32}
+.unit{display:block;margin-top:2.4cqw;font:500 4.6cqw/1 var(--f-num);letter-spacing:.32em;color:var(--dim);padding-left:.32em}
+.halo{position:absolute;left:50%;top:49%;width:70%;aspect-ratio:1;margin:-35% 0 0 -35%;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(255,45,75,.42),rgba(255,45,75,0));opacity:0;pointer-events:none}
+.over .digits{color:var(--red)}
+.over .halo{animation:halo .9s ease-in-out infinite}
+@keyframes halo{0%,100%{opacity:.08;transform:scale(.94)}50%{opacity:.95;transform:scale(1.04)}}
+#vig{position:fixed;inset:0;pointer-events:none;opacity:0;
+  background:radial-gradient(ellipse at center,rgba(0,0,0,0) 48%,rgba(228,0,43,.55) 100%)}
+#vig.on{animation:vig .9s ease-in-out infinite}
+@keyframes vig{0%,100%{opacity:0}50%{opacity:1}}
+
+/* side modules */
+.side{display:flex;flex-direction:column;justify-content:center;gap:2.2dvh;min-width:0}
+.left{grid-area:left;align-items:flex-start}
+.right{grid-area:right;align-items:flex-end;text-align:right}
+.sign{width:var(--sign);height:var(--sign);flex:none}
+.sign .bg{fill:var(--sign-bg)} .sign .ring{fill:none;stroke:var(--red-deep);stroke-width:11}
+:root[data-theme="night"] .sign .ring{stroke:#B3122A}
+.sign text{font:800 46px var(--f-num);fill:var(--sign-fg);text-anchor:middle}
+.sign.none .bg{fill:none} .sign.none .ring{stroke:var(--faint)} .sign.none text{fill:var(--dim)}
+.sign.est .ring{stroke-dasharray:14 6}
+.road{font:500 clamp(14px,3.3dvh,22px)/1.15 var(--f-txt);color:var(--dim);max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:1.2em}
+.compass{display:flex;align-items:center;gap:10px;flex-direction:row-reverse}
+.dial{position:relative;width:calc(var(--sign)*.78);height:calc(var(--sign)*.78);flex:none}
+.dial svg{position:absolute;inset:0;width:100%;height:100%}
+.dial .rot{transform-box:view-box;transform-origin:50px 50px;transition:transform .7s cubic-bezier(.3,.7,.2,1)}
+.dial .rt{stroke:var(--fg);stroke-width:1;opacity:.45}.dial .rt.m{stroke-width:2;opacity:.8}
+.dial .north{fill:var(--red)}
+.dial .ptr{fill:var(--fg)}
+.dial b{position:absolute;inset:0;display:grid;place-items:center;font:700 clamp(18px,5.2dvh,34px)/1 var(--f-num);letter-spacing:.04em}
+.deg{font:500 clamp(14px,3.3dvh,22px) var(--f-num);color:var(--dim);font-variant-numeric:tabular-nums;letter-spacing:.06em}
+
+/* nav */
+.nav{display:none;align-items:center;gap:12px;flex-direction:row-reverse}
+.nav.on{display:flex}
+.nav .arr{width:calc(var(--sign)*.78);height:calc(var(--sign)*.78);flex:none;color:var(--fg);filter:drop-shadow(0 0 8px var(--glow))}
+.nav .arr svg{width:100%;height:100%;transition:transform .3s}
+.nav .nd{font:700 clamp(26px,8dvh,52px)/.9 var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap}
+.nav .ns{font:500 clamp(12px,2.8dvh,18px)/1.15 var(--f-txt);color:var(--dim);max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px}
+.nav.near .nd{color:var(--red)}
+.nav.near .arr{color:var(--red)}
+
+/* stats */
+.stats{grid-area:stats;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding-top:10px;position:relative}
+.stats::before{content:"";position:absolute;left:0;right:0;top:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--faint) 12%,var(--faint) 88%,transparent)}
+.stats::after{content:"";position:absolute;left:50%;top:-1px;width:56px;height:3px;margin-left:-28px;background:var(--red-deep)}
+.st{display:flex;flex-direction:column;align-items:center;gap:3px}
+.st b{font:600 clamp(20px,5.4dvh,34px)/1 var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.st b u{text-decoration:none;font-size:.52em;color:var(--dim);margin-left:.2em;letter-spacing:.05em}
+.st span{font:400 clamp(11px,2.5dvh,15px)/1 var(--f-txt);color:var(--dim);letter-spacing:.05em}
+
+/* boot */
+.boot .side,.boot .stats,.boot .top,.boot .unit{opacity:0}
+.side,.stats,.top,.unit{transition:opacity .5s ease}
+
+/* portrait */
+@media (orientation:portrait){
+  #hud{--gw:100%;--sign:min(36vw,21dvh);
+    grid-template-columns:1fr 1fr;grid-template-rows:auto minmax(0,1fr) minmax(0,1fr) auto;
+    grid-template-areas:"top top" "gauge gauge" "left right" "stats stats";gap:0 12px}
+  .gauge{align-self:end;margin-bottom:2dvh}
+  .side{justify-content:center;align-self:center;gap:2.4dvh}
+  .road{font-size:clamp(16px,2.6dvh,24px)}
+  .nav .nd{font-size:clamp(30px,5.4dvh,56px)}
+  .stats{padding-bottom:2dvh}
+  .nav .ns{max-width:40vw}
+  .top{font-size:clamp(16px,2.6dvh,22px)}
+}
+
+/* ───────── kontrol katmanı (aynalanmaz) ───────── */
+#ui{position:fixed;inset:0;pointer-events:none}
+#bar{position:absolute;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translate(-50%,24px);opacity:0;pointer-events:none;
+  display:flex;gap:6px;padding:6px;border-radius:18px;background:rgba(18,20,26,.86);border:1px solid rgba(255,255,255,.1);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:transform .3s,opacity .3s}
+#bar.on{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+.btn{appearance:none;border:0;background:transparent;color:#EAF1FF;font:500 14px/1 var(--f-txt);padding:11px 14px;border-radius:13px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;min-width:68px}
+.btn:active{background:rgba(255,255,255,.1)}
+.btn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.btn.red{color:#FF5C73}
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:92dvh;overflow:auto;pointer-events:auto;color:#EAF1FF;
+  background:rgba(14,16,21,.96);border-top:2px solid var(--red-deep);border-radius:22px 22px 0 0;
+  padding:18px max(20px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left));
+  transform:translateY(105%);transition:transform .35s cubic-bezier(.2,.8,.2,1);
+  width:min(100%,560px);margin:0 auto}
+.sheet.on{transform:none}
+.sheet h2{margin:0 0 6px;font:700 24px/1.1 var(--f-num);letter-spacing:.03em}
+.row{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:13px 0;border-bottom:1px solid rgba(255,255,255,.08);font:500 16px/1.25 var(--f-txt)}
+.row small{display:block;color:#8D97A8;font-size:13px;font-weight:400;margin-top:3px}
+.sw{appearance:none;width:50px;height:30px;border-radius:15px;background:#2a2f3a;position:relative;flex:none;transition:background .2s}
+.sw::after{content:"";position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:#EAF1FF;transition:transform .2s}
+.sw:checked{background:var(--red-deep)}.sw:checked::after{transform:translateX(20px)}
+.seg{display:flex;background:#222732;border-radius:11px;padding:3px;flex:none}
+.seg button{appearance:none;border:0;background:transparent;color:#9aa4b5;font:500 14px var(--f-txt);padding:8px 11px;border-radius:9px}
+.seg button.on{background:#EAF1FF;color:#000}
+.step{display:flex;align-items:center;gap:12px;flex:none}
+.step button{appearance:none;border:0;width:38px;height:38px;border-radius:50%;background:#222732;color:#EAF1FF;font:600 22px/1 var(--f-num)}
+.step output{min-width:56px;text-align:center;font:700 22px var(--f-num)}
+.cta{appearance:none;border:0;border-radius:13px;background:var(--red-deep);color:#fff;font:600 16px var(--f-txt);padding:13px 18px}
+.cta.ghost{background:#222732}
+.sheet .foot{display:flex;gap:10px;margin-top:16px}
+.sheet .foot .cta{flex:1}
+.searchrow{display:flex;gap:8px;margin:10px 0}
+.searchrow input{flex:1;min-width:0;background:#1b1f28;border:1px solid #2c3240;border-radius:12px;color:#EAF1FF;font:500 17px var(--f-txt);padding:13px 14px;outline:none}
+.searchrow input:focus{border-color:var(--red-deep)}
+.res{list-style:none;margin:0;padding:0}
+.res li{padding:12px 4px;border-bottom:1px solid rgba(255,255,255,.08);font:500 15px/1.3 var(--f-txt)}
+.res li:active{background:rgba(255,255,255,.07)}
+.res li small{display:block;color:#8D97A8;font-size:13px;margin-top:2px}
+.msg{color:#8D97A8;font:400 14px/1.4 var(--f-txt);padding:8px 2px}
+
+/* izin ekranı */
+#perm{position:fixed;inset:0;display:none;place-items:center;background:#000;padding:24px;text-align:center;z-index:20;pointer-events:auto}
+#perm.on{display:grid}
+#perm .box{max-width:460px}
+#perm .ico{width:76px;height:76px;margin:0 auto 18px;color:var(--red-deep)}
+#perm h1{margin:0 0 10px;font:800 36px/1 var(--f-num);letter-spacing:.03em;color:#EAF1FF}
+#perm p{margin:0 0 8px;color:#9aa4b5;font:400 16px/1.45 var(--f-txt)}
+#perm ol{text-align:left;color:#cfd6e4;font:400 15px/1.5 var(--f-txt);margin:14px auto 22px;padding-left:22px;max-width:360px}
+#hint{position:absolute;left:0;right:0;top:max(12px,env(safe-area-inset-top));text-align:center;color:#8D97A8;font:400 13px var(--f-txt);opacity:0;transition:opacity .4s}
+#hint.on{opacity:1}
+@media (prefers-reduced-motion:reduce){.over .halo,#vig.on{animation-duration:2s}}
+</style>
+</head>
+<body class="boot">
+
+<div id="vig"></div>
+
+<div id="hud">
+  <div class="top">
+    <span class="clock" id="clock">--:--</span>
+    <span class="sig-wrap"><small id="sigTxt">GPS</small><span class="sig" id="sig"><i></i><i></i><i></i><i></i></span></span>
+  </div>
+
+  <section class="side left">
+    <svg class="sign none" id="sign" viewBox="0 0 100 100" aria-label="Hız limiti">
+      <circle class="bg" cx="50" cy="50" r="47"/>
+      <circle class="ring" cx="50" cy="50" r="41.5"/>
+      <text id="signTxt" x="50" y="66">–</text>
+    </svg>
+    <div class="road" id="road">Yol bilgisi bekleniyor</div>
+  </section>
+
+  <section class="gauge" id="gauge">
+    <div class="halo"></div>
+    <svg class="arc" viewBox="0 0 460 290" aria-hidden="true">
+      <g id="ticks"></g>
+      <path class="trk" id="trk"/>
+      <path class="fill w" id="fillW" pathLength="1000"/>
+      <path class="fill r" id="fillR" pathLength="1000"/>
+      <g class="mark" id="mark" style="opacity:0"><path id="markP"/></g>
+    </svg>
+    <div class="speed">
+      <div class="digits" id="digits" aria-live="off"><i>0</i><i class="h">0</i><i class="h">0</i></div>
+      <span class="unit">km/s</span>
+    </div>
+  </section>
+
+  <section class="side right">
+    <div class="compass">
+      <div class="dial">
+        <svg viewBox="0 0 100 100"><g class="rot" id="rot" style="transform:rotate(0deg)"></g>
+          <path class="ptr" d="M50 1 L45 -7 H55 Z" transform="translate(0,6)"/></svg>
+        <b id="dir">–</b>
+      </div>
+      <div class="deg" id="deg">---°</div>
+    </div>
+    <div class="nav" id="nav">
+      <div class="arr" id="arr"></div>
+      <div><div class="nd" id="nd">–</div><div class="ns" id="ns"></div></div>
+    </div>
+  </section>
+
+  <footer class="stats">
+    <div class="st"><b id="stDur">00:00</b><span>süre</span></div>
+    <div class="st"><b id="stDist">0.0<u>km</u></b><span>mesafe</span></div>
+    <div class="st"><b id="stMax">0<u>km/s</u></b><span>maks</span></div>
+    <div class="st"><b id="stAvg">0<u>km/s</u></b><span>ortalama</span></div>
+  </footer>
+</div>
+
+<div id="ui">
+  <div id="hint">Menü için ekrana dokun</div>
+
+  <div id="bar">
+    <button class="btn" data-act="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ayarlar</button>
+    <button class="btn" data-act="search"><svg viewBox="0 0 24 24"><path d="M3 11l18-8-8 18-2-8z"/></svg><span id="navLbl">Rota</span></button>
+    <button class="btn" data-act="reset"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Sıfırla</button>
+    <button class="btn" data-act="full"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>Tam ekran</button>
+  </div>
+
+  <div class="sheet" id="setSheet">
+    <h2>Ayarlar</h2>
+    <label class="row"><span>Ayna modu<small>Ön cama yansıtmak için görüntüyü çevirir</small></span><input type="checkbox" class="sw" data-k="mirror"></label>
+    <div class="row"><span>Tema</span>
+      <div class="seg" id="themeSeg"><button data-v="auto">Otomatik</button><button data-v="day">Gündüz</button><button data-v="night">Gece</button></div></div>
+    <div class="row"><span>Limit toleransı<small>Uyarı, limit + tolerans aşılınca başlar</small></span>
+      <div class="step"><button data-d="-1">−</button><output id="tolOut">5</output><button data-d="1">+</button></div></div>
+    <label class="row"><span>Uyarı sesi<small>Limit aşılınca kısa bip</small></span><input type="checkbox" class="sw" data-k="beep"></label>
+    <label class="row"><span>Tahmini limitler<small>Haritada limit yoksa yol türüne göre tahmin göster (kesikli çerçeve)</small></span><input type="checkbox" class="sw" data-k="inferred"></label>
+    <label class="row"><span>Demo modu<small>GPS olmadan sahte hız ve rota ile dene</small></span><input type="checkbox" class="sw" data-k="demo"></label>
+    <div class="foot"><button class="cta" data-act="close">Tamam</button></div>
+  </div>
+
+  <div class="sheet" id="navSheet">
+    <h2>Rota</h2>
+    <div class="searchrow"><input id="q" type="search" placeholder="Adres veya yer ara" enterkeyhint="search" autocomplete="off"><button class="cta" id="qGo">Ara</button></div>
+    <ul class="res" id="res"></ul>
+    <div class="msg" id="navMsg"></div>
+    <div class="foot"><button class="cta ghost" data-act="close">Kapat</button><button class="cta" id="navStop" style="display:none">Rotayı bitir</button></div>
+  </div>
+
+  <div id="perm">
+    <div class="box">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/><path d="M3 3l18 18"/></svg>
+      <h1 id="permT">Konum izni gerekli</h1>
+      <p id="permP">Hız, yön ve yol bilgisi yalnızca telefonunun GPS'inden gelir. İzin verilene kadar HUD çalışamaz.</p>
+      <ol id="permL"><li>Adres çubuğundaki kilit simgesine dokun</li><li>İzinler → Konum → İzin ver</li><li>Aşağıdan tekrar dene</li></ol>
+      <button class="cta" id="permRetry">Tekrar dene</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(()=>{
+'use strict';
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const store={
+  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+const P=new URLSearchParams(location.search);
+const S=Object.assign({mirror:true,theme:'auto',tol:5,beep:false,inferred:true,demo:false},store.get('hud.settings',{}));
+if(P.get('demo')) S.demo=true;
+if(P.get('mirror')==='0') S.mirror=false;
+if(P.get('theme')) S.theme=P.get('theme');
+const save=()=>store.set('hud.settings',S);
+const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
+const pad=n=>String(n).padStart(2,'0');
+const NS='http://www.w3.org/2000/svg';
+const mk=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);parent&&parent.appendChild(e);return e};
+
+/* ───────── gauge geometry ───────── */
+const CX=230,CY=225,R=180,A0=170,SWEEP=200,VMAX=240;
+const pt=(a,r)=>[CX+r*Math.cos(a*Math.PI/180),CY+r*Math.sin(a*Math.PI/180)];
+const aOf=v=>A0+SWEEP*v/VMAX;
+const arcD=(()=>{const a=pt(A0,R),b=pt(A0+SWEEP,R);return `M${a[0].toFixed(2)} ${a[1].toFixed(2)} A${R} ${R} 0 1 1 ${b[0].toFixed(2)} ${b[1].toFixed(2)}`})();
+['trk','fillW','fillR'].forEach(id=>$('#'+id).setAttribute('d',arcD));
+(()=>{
+  const g=$('#ticks');
+  for(let v=0;v<=VMAX;v+=10){
+    const maj=v%40===0, a=aOf(v), p1=pt(a,R-9), p2=pt(a,R-(maj?24:16));
+    mk('line',{x1:p1[0],y1:p1[1],x2:p2[0],y2:p2[1],class:'tick'+(maj?' maj':'')},g);
+    if(maj){const p=pt(a,R+24);const t=mk('text',{x:p[0],y:p[1],class:'tlab'},g);t.textContent=v}
+  }
+  const a=pt(A0,0),p=pt(A0,R+6),q=pt(A0,R-14);
+  // limit marker: triangle on the arc, rotated with CSS
+  const t1=pt(A0,R+9),t2=pt(A0-1.9,R+19),t3=pt(A0+1.9,R+19);
+  $('#markP').setAttribute('d',`M${t1[0]} ${t1[1]} L${t2[0]} ${t2[1]} L${t3[0]} ${t3[1]}Z`);
+})();
+// compass dial ticks
+(()=>{
+  const g=$('#rot');
+  for(let d=0;d<360;d+=10){
+    const m=d%90===0, a=(d-90)*Math.PI/180, r1=44, r2=m?36:40;
+    mk('line',{x1:50+r1*Math.cos(a),y1:50+r1*Math.sin(a),x2:50+r2*Math.cos(a),y2:50+r2*Math.sin(a),class:'rt'+(m?' m':'')},g);
+  }
+  mk('path',{d:'M50 3 L54.5 12 L50 9.5 L45.5 12 Z',class:'north'},g);
+})();
+
+/* ───────── theme / mirror ───────── */
+function applyTheme(){
+  let t=S.theme;
+  if(t==='auto'){const h=new Date().getHours();t=(h>=20||h<6)?'night':'day'}
+  document.documentElement.dataset.theme=t;
+  document.querySelector('meta[name=theme-color]').content='#000000';
+}
+function applyMirror(){document.documentElement.classList.toggle('mirror',!!S.mirror)}
+
+/* ───────── render ───────── */
+const el={digits:$('#digits'),gauge:$('#gauge'),fillW:$('#fillW'),fillR:$('#fillR'),mark:$('#mark'),vig:$('#vig'),
+  sign:$('#sign'),signTxt:$('#signTxt'),road:$('#road'),rot:$('#rot'),dir:$('#dir'),deg:$('#deg'),
+  clock:$('#clock'),sig:$('#sig'),sigTxt:$('#sigTxt')};
+const cells=[...el.digits.children];
+let shown=-1;
+function setDigits(n){
+  if(n===shown)return; shown=n;
+  const s=String(n);
+  cells.forEach((c,i)=>{
+    const j=i-(3-s.length); // right-aligned into 3 cells
+    if(j>=0){c.textContent=s[j];c.classList.remove('h')}else c.classList.add('h');
+  });
+}
+function setArc(v,t){
+  const off=1000*(1-clamp(v/VMAX,0,1));
+  el.fillW.style.strokeDashoffset=off; el.fillR.style.strokeDashoffset=off;
+  el.fillR.style.opacity=t.toFixed(2);
+}
+function setMark(limit){
+  if(!limit){el.mark.style.opacity=0;return}
+  el.mark.style.opacity=1;
+  el.mark.style.transform=`rotate(${(SWEEP*clamp(limit,0,VMAX)/VMAX).toFixed(1)}deg)`;
+}
+
+/* ───────── state ───────── */
+const st={speed:0,shownSpeed:0,heading:null,headAcc:0,lastFix:0,acc:null,pos:null,prev:null,
+  limit:null,est:false,road:null,limitAt:0,
+  trip:Object.assign({dist:0,dur:0,mov:0,max:0,started:false},store.get('hud.trip',{}))};
+let over=false, lastBeep=0, booting=true;
+
+function render(){
+  const v=Math.round(st.speed);
+  setDigits(v);
+  const lim=st.limit;
+  let t=0;
+  if(lim){t=clamp((st.speed-(lim-12))/((lim+S.tol)-(lim-12)),0,1)}
+  setArc(st.speed,t);
+  const isOver=!!lim&&st.speed>lim+S.tol;
+  if(isOver!==over){
+    over=isOver;
+    el.gauge.classList.toggle('over',over);
+    el.vig.classList.toggle('on',over);
+  }
+  if(over&&S.beep&&Date.now()-lastBeep>4000){lastBeep=Date.now();beep()}
+}
+function renderSign(){
+  const lim=st.limit;
+  el.sign.classList.toggle('none',!lim);
+  el.sign.classList.toggle('est',!!lim&&st.est);
+  el.signTxt.textContent=lim?String(lim):'–';
+  el.signTxt.setAttribute('font-size',lim&&String(lim).length>2?'40':'46');
+  setMark(lim);
+  el.road.textContent=st.road||'Yol bilgisi bekleniyor';
+}
+const DIRS=['K','KD','D','GD','G','GB','B','KB'];
+let headU=0;
+function renderHeading(){
+  if(st.heading==null)return;
+  const h=((st.heading%360)+360)%360;
+  // unwrap for smooth rotation across 359→0
+  let d=h-(((headU%360)+360)%360); if(d>180)d-=360; if(d<-180)d+=360;
+  headU+=d;
+  el.rot.style.transform=`rotate(${(-headU).toFixed(1)}deg)`;
+  el.dir.textContent=DIRS[Math.round(h/45)%8];
+  el.deg.textContent=String(Math.round(h)).padStart(3,'0')+'°';
+}
+const fmtDur=ms=>{const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?`${h}:${pad(m)}:${pad(s%60)}`:`${pad(m)}:${pad(s%60)}`};
+function renderStats(){
+  const T=st.trip;
+  $('#stDur').textContent=fmtDur(T.dur);
+  $('#stDist').innerHTML=(T.dist/1000).toFixed(1)+'<u>km</u>';
+  $('#stMax').innerHTML=Math.round(T.max)+'<u>km/s</u>';
+  const avg=T.mov>5000?T.dist/(T.mov/1000)*3.6:0;
+  $('#stAvg').innerHTML=Math.round(avg)+'<u>km/s</u>';
+}
+
+/* ───────── geo math ───────── */
+const rad=Math.PI/180;
+function hav(a,b){
+  const dLat=(b.lat-a.lat)*rad,dLon=(b.lon-a.lon)*rad;
+  const x=Math.sin(dLat/2)**2+Math.cos(a.lat*rad)*Math.cos(b.lat*rad)*Math.sin(dLon/2)**2;
+  return 12742000*Math.asin(Math.sqrt(x));
+}
+function bearing(a,b){
+  const y=Math.sin((b.lon-a.lon)*rad)*Math.cos(b.lat*rad);
+  const x=Math.cos(a.lat*rad)*Math.sin(b.lat*rad)-Math.sin(a.lat*rad)*Math.cos(b.lat*rad)*Math.cos((b.lon-a.lon)*rad);
+  return (Math.atan2(y,x)/rad+360)%360;
+}
+// meters from point p to segment a-b (local equirectangular)
+function segDist(p,a,b){
+  const k=Math.cos(p.lat*rad)*111320, m=110574;
+  const ax=(a.lon-p.lon)*k, ay=(a.lat-p.lat)*m, bx=(b.lon-p.lon)*k, by=(b.lat-p.lat)*m;
+  const dx=bx-ax, dy=by-ay, l2=dx*dx+dy*dy;
+  let t=l2?clamp(-(ax*dx+ay*dy)/l2,0,1):0;
+  return Math.hypot(ax+t*dx, ay+t*dy);
+}
+
+/* ───────── GPS ───────── */
+let watchId=null;
+function startGPS(){
+  if(S.demo){return}
+  if(!navigator.geolocation){showPerm('unsupported');return}
+  stopGPS();
+  watchId=navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,maximumAge:0,timeout:15000});
+}
+function stopGPS(){if(watchId!=null){navigator.geolocation.clearWatch(watchId);watchId=null}}
+function onPos(p){
+  const c=p.coords;
+  handleFix({lat:c.latitude,lon:c.longitude,acc:c.accuracy,t:p.timestamp||Date.now(),v:c.speed==null||isNaN(c.speed)?null:c.speed*3.6,h:c.heading==null||isNaN(c.heading)?null:c.heading});
+}
+function onErr(e){
+  if(e.code===1)showPerm('denied');
+}
+function handleFix(f){
+  hidePerm();
+  st.lastFix=Date.now(); st.acc=f.acc;
+  const prev=st.prev; let v=f.v, d=0, dt=0;
+  if(prev){d=hav(prev,f); dt=(f.t-prev.t)/1000;}
+  if(v==null) v=(prev&&dt>.3)?d/dt*3.6:0;
+  if(v<2.5||(f.acc>60&&v<8)) v=0;
+  st.speed = st.speed===0&&v===0 ? 0 : st.speed+(v-st.speed)*(v>st.speed?.55:.35);
+  if(st.speed<.6&&v===0) st.speed=0;
+
+  // heading
+  if(v>4){
+    if(f.h!=null) st.heading=f.h;
+    else if(prev&&d>4) st.heading=bearing(prev,f);
+  }
+  // trip
+  const T=st.trip;
+  if(dt>0&&dt<10){
+    if(T.started) T.dur+=dt*1000;
+    if(v>=3&&f.acc<=40){ T.dist+=d; T.mov+=dt*1000; }
+  }
+  if(!T.started&&v>5) T.started=true;
+  if(st.speed>T.max&&f.acc<=60) T.max=st.speed;
+  st.prev=f; st.pos=f;
+  persistTrip();
+  render(); renderHeading(); renderStats();
+  if(!S.demo)maybeLookup(f);
+  navTick(f);
+}
+let lastPersist=0;
+function persistTrip(){const n=Date.now();if(n-lastPersist>5000){lastPersist=n;store.set('hud.trip',st.trip)}}
+
+/* signal + clock tick */
+function tick(){
+  const n=new Date();
+  el.clock.textContent=pad(n.getHours())+':'+pad(n.getMinutes());
+  const age=Date.now()-st.lastFix;
+  let bars=0;
+  if(st.lastFix&&age<6000){const a=st.acc||99;bars=a<=8?4:a<=15?3:a<=30?2:1}
+  [...el.sig.children].forEach((b,i)=>b.classList.toggle('on',i<bars));
+  el.sig.classList.toggle('bad',bars<=1);
+  el.sigTxt.textContent=bars?'GPS':'GPS yok';
+  el.gauge.classList.toggle('stale',!!st.lastFix&&age>6000);
+  if(!S.demo&&st.lastFix&&age>6000&&st.speed!==0){st.speed=0;render()}
+  if(S.theme==='auto')applyTheme();
+  if(!booting)renderStats();
+}
+setInterval(tick,1000);
+
+/* ───────── yol adı + hız limiti (Overpass + Nominatim) ───────── */
+const OVERPASS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+const cache=new Map(Object.entries(store.get('hud.roads',{})));
+let lastQ={t:0,pos:null}, inflight=false;
+const EST={motorway:120,trunk:90,residential:50,living_street:20};
+function parseMax(s){
+  if(!s)return null;
+  if(/^\s*\d+\s*mph/i.test(s))return Math.round(parseInt(s)*1.609/5)*5;
+  const m=String(s).match(/^\s*(\d{2,3})\s*(km\/h)?\s*$/);
+  return m?parseInt(m[1]):null;
+}
+function maybeLookup(f){
+  const now=Date.now();
+  if(inflight||now-lastQ.t<10000)return;
+  if(lastQ.pos&&hav(lastQ.pos,f)<50)return;
+  if(st.speed<3&&lastQ.pos)return;
+  lastQ={t:now,pos:{lat:f.lat,lon:f.lon}};
+  const key=f.lat.toFixed(3)+','+f.lon.toFixed(3)+','+Math.round((st.heading||0)/45);
+  if(cache.has(key)){applyRoad(cache.get(key));return}
+  inflight=true;
+  lookup(f).then(r=>{
+    if(r){cache.set(key,r);if(cache.size>200)cache.delete(cache.keys().next().value);store.set('hud.roads',Object.fromEntries(cache))}
+    applyRoad(r);
+  }).catch(()=>{}).finally(()=>{inflight=false});
+}
+async function fetchT(url,opt,ms=8000){
+  const c=new AbortController(), t=setTimeout(()=>c.abort(),ms);
+  try{return await fetch(url,{...opt,signal:c.signal})}finally{clearTimeout(t)}
+}
+async function lookup(f){
+  const q=`[out:json][timeout:7];way(around:30,${f.lat},${f.lon})["highway"]["highway"!~"footway|path|steps|cycleway|pedestrian|track|bridleway|corridor|platform|proposed|construction"];out geom tags 12;`;
+  let data=null;
+  for(const ep of OVERPASS){
+    try{const r=await fetchT(ep,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+      if(r.ok){data=await r.json();break}}catch(e){}
+  }
+  if(!data)return null;
+  const me={lat:f.lat,lon:f.lon}; let best=null;
+  for(const w of data.elements||[]){
+    if(!w.geometry||w.geometry.length<2)continue;
+    let dmin=1e9, ang=0;
+    for(let i=0;i<w.geometry.length-1;i++){
+      const a={lat:w.geometry[i].lat,lon:w.geometry[i].lon}, b={lat:w.geometry[i+1].lat,lon:w.geometry[i+1].lon};
+      const d=segDist(me,a,b); if(d<dmin){dmin=d;ang=bearing(a,b)}
+    }
+    let pen=0;
+    if(st.heading!=null){let df=Math.abs(((ang-st.heading+540)%360)-180);df=Math.min(df,180-df);pen=df/90*14}
+    const score=dmin+pen;
+    if(!best||score<best.score)best={score,tags:w.tags||{}};
+  }
+  if(!best)return {none:true};
+  const tg=best.tags;
+  let limit=parseMax(tg.maxspeed)||parseMax(tg['maxspeed:forward'])||null, est=false;
+  if(!limit&&EST[tg.highway]){limit=EST[tg.highway];est=true}
+  let name=tg.name||tg.ref||null;
+  if(!name){
+    try{const r=await fetchT(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&accept-language=tr&lat=${f.lat}&lon=${f.lon}`,{});
+      if(r.ok){const j=await r.json();name=(j.address&&(j.address.road||j.address.suburb))||null}}catch(e){}
+  }
+  return {name,limit,est};
+}
+function applyRoad(r){
+  const now=Date.now();
+  if(r&&!r.none){
+    st.road=r.name||st.road; st.limit=r.limit||null; st.est=!!r.est; st.limitAt=now;
+    if(st.est&&!S.inferred){st.limit=null;st.est=false}
+  }else if(now-st.limitAt>30000){st.limit=null;st.est=false}
+  renderSign(); render();
+}
+
+/* ───────── rota (Nominatim arama + OSRM) ───────── */
+const nav={route:null,idx:0,dest:null,lastReroute:0,off:0,demo:false};
+const ARROWS={
+  straight:'<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"><path d="M50 92V22"/><path d="M26 44L50 18l24 26" /></svg>',
+  turn:'<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"><path d="M32 94V58Q32 38 52 38H76"/><path d="M58 16l22 22-22 22"/></svg>',
+  uturn:'<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"><path d="M30 92V40a20 20 0 0 1 40 0v30"/><path d="M52 52l18 20 18-20"/></svg>',
+  arrive:'<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"><path d="M28 92V10"/><path d="M28 14h52l-12 17 12 17H28"/></svg>',
+  round:'<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"><circle cx="50" cy="56" r="20"/><path d="M50 96V76M50 36V8M34 24l16-16 16 16"/></svg>'
+};
+function arrowFor(m){
+  const t=m.type, mod=m.modifier||'straight';
+  if(t==='arrive')return {g:'arrive',rot:0,flip:false};
+  if(mod==='uturn')return {g:'uturn',rot:0,flip:false};
+  if(t==='roundabout'||t==='rotary'||t==='roundabout turn')return {g:'round',rot:0,flip:false};
+  const left=mod.includes('left');
+  if(mod==='straight')return {g:'straight',rot:0,flip:false};
+  if(mod==='slight right')return {g:'straight',rot:40,flip:false};
+  if(mod==='slight left')return {g:'straight',rot:-40,flip:false};
+  if(mod==='sharp right')return {g:'straight',rot:135,flip:false};
+  if(mod==='sharp left')return {g:'straight',rot:-135,flip:false};
+  return {g:'turn',rot:0,flip:left};
+}
+function showManeuver(m,dist,name){
+  const a=arrowFor(m);
+  $('#arr').innerHTML=ARROWS[a.g];
+  const svg=$('#arr svg');
+  svg.style.transform=`rotate(${a.rot}deg)${a.flip?' scaleX(-1)':''}`;
+  const d=m.type==='arrive'&&dist<25?'Vardın':fmtNavDist(dist);
+  $('#nd').textContent=d;
+  $('#ns').textContent=name||'';
+  $('#nav').classList.add('on'); $('#nav').classList.toggle('near',dist<150);
+  document.querySelector('.compass').style.display='none';
+}
+function hideManeuver(){$('#nav').classList.remove('on');document.querySelector('.compass').style.display=''}
+function fmtNavDist(m){
+  if(m>=1000)return (m/1000).toFixed(1).replace('.',',')+' km';
+  if(m>=200)return Math.round(m/50)*50+' m';
+  return Math.max(10,Math.round(m/10)*10)+' m';
+}
+async function startRoute(dest){
+  const f=st.pos; if(!f&&!S.demo){setNavMsg('Önce GPS sinyali bekleniyor.');return false}
+  setNavMsg('Rota hesaplanıyor…');
+  try{
+    const r=await fetchT(`https://router.project-osrm.org/route/v1/driving/${f.lon},${f.lat};${dest.lon},${dest.lat}?steps=true&overview=full&geometries=geojson`,{},12000);
+    const j=await r.json();
+    if(!j.routes||!j.routes[0]){setNavMsg('Bu hedefe rota bulunamadı.');return false}
+    const rt=j.routes[0];
+    nav.route={steps:rt.legs[0].steps,geom:rt.geometry.coordinates.map(c=>({lon:c[0],lat:c[1]}))};
+    nav.idx=0; nav.dest=dest; nav.off=0; nav.lastReroute=Date.now();
+    $('#navLbl').textContent='Rota'; $('#navStop').style.display='';
+    navTick(f);
+    return true;
+  }catch(e){setNavMsg('Rota alınamadı. İnternet bağlantını kontrol et.');return false}
+}
+function stopRoute(){nav.route=null;nav.dest=null;hideManeuver();$('#navStop').style.display='none'}
+function navTick(f){
+  if(nav.demo||!nav.route||!f)return;
+  const steps=nav.route.steps;
+  // advance past reached maneuvers
+  while(nav.idx+1<steps.length){
+    const m=steps[nav.idx+1].maneuver, d=hav(f,{lat:m.location[1],lon:m.location[0]});
+    if(d<(m.type==='arrive'?20:28)&&nav.idx+1<steps.length-1){nav.idx++;continue}
+    break;
+  }
+  const next=steps[Math.min(nav.idx+1,steps.length-1)];
+  const m=next.maneuver, dist=hav(f,{lat:m.location[1],lon:m.location[0]});
+  if(m.type==='arrive'&&dist<20){showManeuver(m,dist,'');setTimeout(stopRoute,6000);return}
+  showManeuver(m,dist,next.name||'');
+  // off-route detection
+  const g=nav.route.geom; let dmin=1e9;
+  for(let i=0;i<g.length-1;i+=1){const d=segDist(f,g[i],g[i+1]);if(d<dmin)dmin=d;if(dmin<15)break}
+  nav.off=dmin>70?nav.off+1:0;
+  if(nav.off>=3&&Date.now()-nav.lastReroute>15000&&nav.dest){nav.lastReroute=Date.now();startRoute(nav.dest)}
+}
+const setNavMsg=t=>{$('#navMsg').textContent=t||''};
+async function search(){
+  const q=$('#q').value.trim(); if(!q)return;
+  const res=$('#res'); res.innerHTML=''; setNavMsg('Aranıyor…');
+  const f=st.pos; let vb='';
+  if(f)vb=`&viewbox=${f.lon-1.5},${f.lat+1.5},${f.lon+1.5},${f.lat-1.5}`;
+  try{
+    const r=await fetchT(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=tr&q=${encodeURIComponent(q)}${vb}`,{});
+    const j=await r.json();
+    if(!j.length){setNavMsg('Sonuç bulunamadı.');return}
+    setNavMsg('');
+    j.forEach(x=>{
+      const li=document.createElement('li'), parts=x.display_name.split(', ');
+      li.textContent=parts[0];
+      const s=document.createElement('small'); s.textContent=parts.slice(1,4).join(', '); li.appendChild(s);
+      li.onclick=async()=>{ if(await startRoute({lat:+x.lat,lon:+x.lon})) closeSheets(); };
+      res.appendChild(li);
+    });
+  }catch(e){setNavMsg('Arama yapılamadı. İnternet bağlantını kontrol et.')}
+}
+$('#qGo').onclick=search;
+$('#q').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
+$('#navStop').onclick=()=>{stopRoute();closeSheets()};
+
+/* ───────── uyarı sesi ───────── */
+let ac=null;
+function unlockAudio(){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume()}catch(e){}}
+function beep(){
+  if(!ac)return; const t=ac.currentTime;
+  [0,.2].forEach(d=>{const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=988;
+    g.gain.setValueAtTime(0,t+d);g.gain.linearRampToValueAtTime(.3,t+d+.01);g.gain.linearRampToValueAtTime(0,t+d+.13);
+    o.connect(g).connect(ac.destination);o.start(t+d);o.stop(t+d+.15)});
+}
+
+/* ───────── wake lock / tam ekran ───────── */
+let wl=null;
+async function wake(){try{if('wakeLock' in navigator&&document.visibilityState==='visible')wl=await navigator.wakeLock.request('screen')}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){wake();if(!S.demo&&watchId==null)startGPS()}});
+function fullscreen(){
+  try{const d=document.documentElement;
+    if(document.fullscreenElement)document.exitFullscreen();
+    else if(d.requestFullscreen)d.requestFullscreen({navigationUI:'hide'}).then(()=>screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{})).catch(()=>{});
+  }catch(e){}
+}
+
+/* ───────── izin ekranı ───────── */
+function showPerm(kind){
+  if(kind==='unsupported'){$('#permT').textContent='Konum desteklenmiyor';$('#permP').textContent='Bu tarayıcı konum servisini sunmuyor. Chrome ile aç.';$('#permL').style.display='none';$('#permRetry').style.display='none'}
+  $('#perm').classList.add('on');
+}
+function hidePerm(){$('#perm').classList.remove('on')}
+$('#permRetry').onclick=()=>{startGPS();
+  if(navigator.permissions)navigator.permissions.query({name:'geolocation'}).then(p=>{if(p.state==='denied')showPerm('denied')}).catch(()=>{})};
+
+/* ───────── menü ───────── */
+const bar=$('#bar'); let barT=null;
+function showBar(){bar.classList.add('on');clearTimeout(barT);barT=setTimeout(()=>bar.classList.remove('on'),6000)}
+function closeSheets(){$$('.sheet').forEach(s=>s.classList.remove('on'));showBar()}
+function openSheet(id){bar.classList.remove('on');clearTimeout(barT);$(id).classList.add('on')}
+document.addEventListener('pointerdown',e=>{unlockAudio()},{once:false,passive:true});
+document.addEventListener('click',e=>{
+  if(e.target.closest('.sheet,#bar,#perm'))return;
+  if($$('.sheet.on').length)return;
+  bar.classList.contains('on')?bar.classList.remove('on'):showBar();
+});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); if(!b)return;
+  const a=b.dataset.act;
+  if(a==='settings'){syncSettings();openSheet('#setSheet')}
+  else if(a==='search'){$('#navSheet').querySelector('#navStop').style.display=nav.route?'':'none';openSheet('#navSheet');if(!nav.route)setTimeout(()=>$('#q').focus(),350)}
+  else if(a==='reset'){st.trip={dist:0,dur:0,mov:0,max:0,started:false};store.set('hud.trip',st.trip);renderStats();showBar()}
+  else if(a==='full'){fullscreen()}
+  else if(a==='close'){closeSheets()}
+});
+function syncSettings(){
+  $$('.sw').forEach(i=>i.checked=!!S[i.dataset.k]);
+  $$('#themeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===S.theme));
+  $('#tolOut').textContent=S.tol;
+}
+$$('.sw').forEach(i=>i.addEventListener('change',()=>{
+  S[i.dataset.k]=i.checked; save(); applyMirror();
+  if(i.dataset.k==='beep'&&i.checked){unlockAudio();setTimeout(beep,50)}
+  if(i.dataset.k==='demo'){location.reload()}
+  if(i.dataset.k==='inferred'){st.limit=null;lastQ.t=0;renderSign();render()}
+}));
+$$('#themeSeg button').forEach(b=>b.onclick=()=>{S.theme=b.dataset.v;save();applyTheme();syncSettings()});
+$$('.step button').forEach(b=>b.onclick=()=>{S.tol=clamp(S.tol+ +b.dataset.d,0,30);save();$('#tolOut').textContent=S.tol;render()});
+
+/* ───────── demo ───────── */
+function startDemo(){
+  let t=0, lat=41.0082, lon=28.9784, hd=70;
+  const fixedV=P.get('v')!=null?+P.get('v'):null, fixedL=P.get('lim')!=null?+P.get('lim'):null;
+  const roads=[['Barbaros Bulvarı',70],['Büyükdere Caddesi',50],['O-1 Otoyolu',120],['Bağdat Caddesi',60]];
+  if(P.get('nav')!=='0'){
+    nav.demo=true;
+    const mnv={type:'turn',modifier:P.get('turn')||'right'};
+    let dd=P.get('nd')!=null?+P.get('nd'):480;
+    showManeuver(mnv,dd,'Bağdat Caddesi');
+    if(P.get('nd')==null)setInterval(()=>{dd=dd<=20?900:dd-18;showManeuver(mnv,dd,'Bağdat Caddesi')},1000);
+  }
+  const step=()=>{
+    t++;
+    const v=fixedV!=null?fixedV:78+52*Math.sin(t/9);
+    hd=(hd+(fixedV!=null?0:1.8))%360;
+    const dm=v/3.6;
+    lat+=dm*Math.cos(hd*rad)/110574; lon+=dm*Math.sin(hd*rad)/(111320*Math.cos(lat*rad));
+    handleFix({lat,lon,acc:6,t:Date.now(),v,h:hd});
+    const r=roads[Math.floor(t/20)%roads.length];
+    st.road=r[0]; st.limit=fixedL!=null?fixedL:r[1]; st.est=false; st.limitAt=Date.now();
+    renderSign(); render();
+  };
+  step(); setInterval(step,1000);
+}
+
+/* ───────── açılış: kadran testi ───────── */
+function intro(done){
+  if(P.get('intro')==='0'){document.body.classList.remove('boot');booting=false;return done&&done()}
+  const T0=performance.now(), UP=850, DOWN=750;
+  const ease=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
+  el.fillW.style.transition='none'; el.fillR.style.transition='none';
+  (function f(now){
+    const e=now-T0; let k;
+    if(e<UP)k=ease(e/UP); else if(e<UP+DOWN)k=1-ease((e-UP)/DOWN); else k=0;
+    const v=k*VMAX;
+    setArc(v,k>.82?(k-.82)/.18*.9:0);
+    setDigits(Math.round(v));
+    if(e<UP+DOWN)requestAnimationFrame(f);
+    else{
+      el.fillW.style.transition=''; el.fillR.style.transition='';
+      setArc(0,0); setDigits(0); shown=-1;
+      document.body.classList.remove('boot'); booting=false;
+      done&&done();
+    }
+  })(T0);
+}
+
+/* ───────── başlat ───────── */
+applyTheme(); applyMirror(); renderSign(); renderStats(); tick();
+const hint=$('#hint');
+intro(()=>{
+  render(); renderHeading();
+  hint.classList.add('on'); setTimeout(()=>hint.classList.remove('on'),4000);
+  if(P.get('intro')!=='0')showBar();
+  if(S.demo)startDemo(); else startGPS();
+});
+wake();
+// ilk dokunuşta tam ekran (tarayıcıda; kurulu uygulamada zaten tam ekran)
+const standalone=matchMedia('(display-mode: fullscreen)').matches||matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+if(!standalone&&!P.get('demo')){
+  const once=()=>{document.removeEventListener('click',once);fullscreen()};
+  document.addEventListener('click',once);
+}
+if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+})();
+</script>
+</body>
+</html>

@@ -24,6 +24,7 @@
   --sign-bg:#fff;
   --sign-fg:#000;
   --bright:1;
+  --water:#0F2748; --park:#0B2418;
   --f-num:"Saira Condensed","Arial Narrow","Roboto Condensed",sans-serif;
   --f-txt:"Saira Semi Condensed","Saira Condensed","Arial Narrow","Roboto Condensed",sans-serif;
 }
@@ -32,7 +33,7 @@
 }
 :root[data-theme="night"]{
   --fg:#E0504A; --dim:#7A2D2B; --faint:rgba(224,80,74,.16); --red:#C41428; --red-deep:#9E0F20; --glow:rgba(224,60,50,.22);
-  --sign-bg:#A24742; --sign-fg:#FFE6E1; --bright:.72;
+  --water:#2A0C0E; --park:#1E0A0A; --sign-bg:#A24742; --sign-fg:#FFE6E1; --bright:.72;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:#000;color:var(--fg);overflow:hidden;font-family:var(--f-txt);
@@ -42,7 +43,7 @@ svg{display:block;overflow:visible}
 /* ───────── HUD ───────── */
 #hud{position:fixed;inset:0;display:grid;opacity:var(--bright);
   padding:max(10px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
-  grid-template-columns:minmax(0,1fr) var(--gw) minmax(0,1fr);
+  grid-template-columns:minmax(0,.9fr) var(--gw) minmax(0,1.3fr);
   grid-template-rows:auto minmax(0,1fr) auto;
   grid-template-areas:"top top top" "left gauge right" "stats stats stats";
   --gw:min(54vw,calc((100dvh - 128px) * 1.586));
@@ -113,20 +114,28 @@ svg{display:block;overflow:visible}
 .dial b{position:absolute;inset:0;display:grid;place-items:center;font:700 clamp(18px,5.2dvh,34px)/1 var(--f-num);letter-spacing:.04em}
 .deg{font:500 clamp(14px,3.3dvh,22px) var(--f-num);color:var(--dim);font-variant-numeric:tabular-nums;letter-spacing:.06em}
 
-/* nav map */
-.navmap{display:none;width:100%;aspect-ratio:1/1;max-height:46dvh;position:relative;
-  -webkit-mask-image:radial-gradient(ellipse 100% 96% at 50% 90%,#000 62%,transparent 100%);
-  mask-image:radial-gradient(ellipse 100% 96% at 50% 90%,#000 62%,transparent 100%)}
-.navmap.on{display:block}
-.mapin{position:absolute;inset:0;transform:perspective(520px) rotateX(42deg);transform-origin:50% 86%}
-.mapin svg{width:100%;height:100%}
-#world{transition:transform 1s linear}
-#world path{fill:none;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
-#rtDim{stroke:var(--fg);stroke-width:8;opacity:.25}
-#rtHi{stroke:var(--fg);stroke-width:10;opacity:.95}
-#rtGlow{stroke:var(--red);stroke-width:18;opacity:.18}
-#mv{fill:var(--red);opacity:.95}
-#car{fill:var(--red);stroke:#000;stroke-width:2}
+/* map */
+.navmap{display:block;width:100%;flex:1 1 auto;min-height:120px;max-height:58dvh;position:relative;
+  -webkit-mask-image:radial-gradient(ellipse 58% 90% at 50% 80%,#000 42%,transparent 100%);
+  mask-image:radial-gradient(ellipse 58% 90% at 50% 80%,#000 42%,transparent 100%)}
+.navmap.off{display:none}
+.mapin{position:absolute;inset:0;transform:perspective(560px) rotateX(40deg);transform-origin:50% 82%;overflow:visible}
+#world{position:absolute;left:0;top:0;width:1800px;height:1800px;transform-origin:0 0;transition:transform 1s linear}
+#world svg{width:1800px;height:1800px}
+#wat{fill:var(--water);stroke:none}
+#prk{fill:var(--park);stroke:none}
+#world path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+#rda{stroke:var(--fg);stroke-width:11;opacity:.9}
+#rdb{stroke:var(--fg);stroke-width:8.5;opacity:.72}
+#rdc{stroke:var(--fg);stroke-width:6.5;opacity:.55}
+#rdd{stroke:var(--fg);stroke-width:4.5;opacity:.38}
+#rde{stroke:var(--fg);stroke-width:2.4;opacity:.2}
+#rtGlow{stroke:var(--red);stroke-width:20;opacity:.25}
+#rtHi{stroke:var(--red);stroke-width:9;opacity:1}
+#rtDim{stroke:var(--red);stroke-width:7;opacity:.42}
+#mv{fill:#fff;stroke:var(--red);stroke-width:5}
+.mcar{position:absolute;left:50%;top:80%;width:22px;height:28px;margin:-14px 0 0 -11px;fill:var(--fg);stroke:#000;stroke-width:2;
+  filter:drop-shadow(0 0 6px var(--red))}
 .near-turn #rtHi{stroke:var(--red)}
 /* nav */
 .nav{display:none;align-items:center;gap:12px;flex-direction:row-reverse}
@@ -155,10 +164,12 @@ svg{display:block;overflow:visible}
 /* portrait */
 @media (orientation:portrait){
   #hud{--gw:100%;--sign:min(36vw,21dvh);
-    grid-template-columns:1fr 1fr;grid-template-rows:auto minmax(0,1fr) minmax(0,1fr) auto;
+    grid-template-columns:.75fr 1.25fr;grid-template-rows:auto minmax(0,1fr) minmax(0,1fr) auto;
     grid-template-areas:"top top" "gauge gauge" "left right" "stats stats";gap:0 12px}
   .gauge{align-self:end;margin-bottom:2dvh}
   .side{justify-content:center;align-self:center;gap:2.4dvh}
+  .navmap{max-height:none}
+  .right{align-self:stretch}
   .road{font-size:clamp(16px,2.6dvh,24px)}
   .nav .nd{font-size:clamp(30px,5.4dvh,56px)}
   .stats{padding-bottom:2dvh}
@@ -264,9 +275,12 @@ svg{display:block;overflow:visible}
       </div>
       <div class="deg" id="deg">---°</div>
     </div>
-    <div class="navmap" id="navmap"><div class="mapin"><svg viewBox="0 0 200 200" aria-hidden="true">
-      <g id="world"><path id="rtDim"/><path id="rtGlow"/><path id="rtHi"/><circle id="mv" r="14"/></g>
-      <path id="car" d="M100 136 L110 160 L100 154 L90 160 Z"/></svg></div></div>
+    <div class="navmap" id="navmap"><div class="mapin">
+      <div id="world"><svg viewBox="-900 -900 1800 1800" aria-hidden="true">
+        <path id="wat" fill-rule="evenodd"/><path id="prk" fill-rule="evenodd"/><path id="rde"/><path id="rdd"/><path id="rdc"/><path id="rdb"/><path id="rda"/>
+        <path id="rtDim"/><path id="rtGlow"/><path id="rtHi"/><circle id="mv" r="16"/></svg></div>
+      <svg class="mcar" viewBox="0 0 22 28"><path d="M11 1 L21 26 L11 20 L1 26 Z"/></svg>
+    </div></div>
     <div class="nav" id="nav">
       <div class="arr" id="arr"></div>
       <div><div class="nd" id="nd">–</div><div class="ns" id="ns"></div></div>
@@ -300,7 +314,7 @@ svg{display:block;overflow:visible}
       <div class="step"><button data-d="-1">−</button><output id="tolOut">5</output><button data-d="1">+</button></div></div>
     <label class="row"><span>Uyarı sesi<small>Limit aşılınca kısa bip</small></span><input type="checkbox" class="sw" data-k="beep"></label>
     <label class="row"><span>Tahmini limitler<small>Haritada limit yoksa yol türüne göre tahmin göster (kesikli çerçeve)</small></span><input type="checkbox" class="sw" data-k="inferred"></label>
-    <label class="row"><span>Demo modu<small>GPS olmadan sahte hız ve rota ile dene</small></span><input type="checkbox" class="sw" data-k="demo"></label>
+    <label class="row"><span>Harita<small>Çevre yolları ve rota (internet gerekir)</small></span><input type="checkbox" class="sw" data-k="map"></label>
     <div class="foot"><button class="cta" data-act="close">Tamam</button></div>
   </div>
 
@@ -332,8 +346,8 @@ const store={
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 };
 const P=new URLSearchParams(location.search);
-const S=Object.assign({mirror:true,theme:'auto',tol:5,beep:false,inferred:true,demo:false},store.get('hud.settings',{}));
-if(P.get('demo')) S.demo=true;
+const S=Object.assign({mirror:true,theme:'auto',tol:5,beep:false,inferred:true,map:true},store.get('hud.settings',{}));
+S.demo=!!P.get('demo');
 if(P.get('mirror')==='0') S.mirror=false;
 if(P.get('theme')) S.theme=P.get('theme');
 const save=()=>store.set('hud.settings',S);
@@ -377,6 +391,7 @@ function applyTheme(){
   document.documentElement.dataset.theme=t;
   document.querySelector('meta[name=theme-color]').content='#000000';
 }
+function applyMap(){$('#navmap').classList.toggle('off',S.map===false)}
 function applyMirror(){document.documentElement.classList.toggle('mirror',!!S.mirror)}
 
 /* ───────── render ───────── */
@@ -519,8 +534,9 @@ function handleFix(f){
   st.prev=f; st.pos=f;
   persistTrip();
   render(); renderHeading(); renderStats();
-  if(!S.demo)maybeLookup(f);
+  if(!S.demo)mapTick(f);
   navTick(f);
+  updateMap(f);
 }
 let lastPersist=0;
 function persistTrip(){const n=Date.now();if(n-lastPersist>5000){lastPersist=n;store.set('hud.trip',st.trip)}}
@@ -542,74 +558,218 @@ function tick(){
 }
 setInterval(tick,1000);
 
-/* ───────── yol adı + hız limiti (Overpass + Nominatim) ───────── */
-const OVERPASS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
-const cache=new Map(Object.entries(store.get('hud.roads',{})));
-let lastQ={t:0,pos:null}, inflight=false;
-const EST={motorway:120,trunk:90,residential:50,living_street:20};
+/* ───────── harita (OpenFreeMap vektör karoları) + yol adı/limit ───────── */
+const OVERPASS=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+const Z=14, TU=40075016.686/(2**Z*4096);           // global birim başına metre (ekvatorda)
+const MAP={a:null,key:'',dirty:false};
+const EST={motorway:120,trunk:90,minor:50};
+const RD={motorway:'a',trunk:'a',primary:'b',secondary:'c',tertiary:'c',minor:'d',service:'e'};
+const WANT={water:1,park:1,transportation:1,transportation_name:1};
 function parseMax(s){
   if(!s)return null;
   if(/^\s*\d+\s*mph/i.test(s))return Math.round(parseInt(s)*1.609/5)*5;
   const m=String(s).match(/^\s*(\d{2,3})\s*(km\/h)?\s*$/);
   return m?parseInt(m[1]):null;
 }
-function maybeLookup(f){
-  const now=Date.now();
-  if(inflight||now-lastQ.t<10000)return;
-  if(lastQ.pos&&hav(lastQ.pos,f)<50)return;
-  if(st.speed<3&&lastQ.pos)return;
-  lastQ={t:now,pos:{lat:f.lat,lon:f.lon}};
-  const key=f.lat.toFixed(3)+','+f.lon.toFixed(3)+','+Math.round((st.heading||0)/45);
-  if(cache.has(key)){applyRoad(cache.get(key));return}
-  inflight=true;
-  lookup(f).then(r=>{
-    if(r){cache.set(key,r);if(cache.size>200)cache.delete(cache.keys().next().value);store.set('hud.roads',Object.fromEntries(cache))}
-    applyRoad(r);
-  }).catch(()=>{}).finally(()=>{inflight=false});
-}
-async function fetchT(url,opt,ms=8000){
+async function fetchT(url,opt,ms=9000){
   const c=new AbortController(), t=setTimeout(()=>c.abort(),ms);
   try{return await fetch(url,{...opt,signal:c.signal})}finally{clearTimeout(t)}
 }
-async function lookup(f){
-  const q=`[out:json][timeout:7];way(around:30,${f.lat},${f.lon})["highway"]["highway"!~"footway|path|steps|cycleway|pedestrian|track|bridleway|corridor|platform|proposed|construction"];out geom tags 12;`;
-  let data=null;
-  for(const ep of OVERPASS){
-    try{const r=await fetchT(ep,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
-      if(r.ok){data=await r.json();break}}catch(e){}
-  }
-  if(!data)return null;
-  const me={lat:f.lat,lon:f.lon}; let best=null;
-  for(const w of data.elements||[]){
-    if(!w.geometry||w.geometry.length<2)continue;
-    let dmin=1e9, ang=0;
-    for(let i=0;i<w.geometry.length-1;i++){
-      const a={lat:w.geometry[i].lat,lon:w.geometry[i].lon}, b={lat:w.geometry[i+1].lat,lon:w.geometry[i+1].lon};
-      const d=segDist(me,a,b); if(d<dmin){dmin=d;ang=bearing(a,b)}
+const gpos=(lat,lon)=>[(lon+180)/360*2**Z*4096,(1-Math.asinh(Math.tan(lat*rad))/Math.PI)/2*2**Z*4096];
+function setAnchor(f){const [gx,gy]=gpos(f.lat,f.lon);MAP.a={lat:f.lat,lon:f.lon,gx,gy,U:TU*Math.cos(f.lat*rad)};MAP.dirty=true}
+function rel(lat,lon){const [x,y]=gpos(lat,lon);return [(x-MAP.a.gx)*MAP.a.U,(y-MAP.a.gy)*MAP.a.U]}
+
+// Mapbox Vector Tile çözücü (yalnızca gereken katmanlar)
+function decodeTile(buf,tx,ty){
+  const b=new Uint8Array(buf), dec=new TextDecoder(), out={water:[],park:[],roads:[],names:[]}, p={i:0};
+  const rv=q=>{let r=0,m=1,c;do{c=b[q.i++];r+=(c&127)*m;m*=128}while(c&128);return r};
+  const skip=(q,t)=>{if(t===0)rv(q);else if(t===1)q.i+=8;else if(t===2){const l=rv(q);q.i+=l}else if(t===5)q.i+=4};
+  const value=(s,e)=>{const q={i:s};while(q.i<e){const tag=rv(q),f=tag>>3,t=tag&7;if(f===1&&t===2){const l=rv(q);return dec.decode(b.subarray(q.i,q.i+l))}skip(q,t)}return null};
+  const geom=(s,e,sc)=>{
+    const q={i:s},parts=[];let cur=null,x=0,y=0;
+    while(q.i<e){
+      const ci=rv(q),cmd=ci&7,cnt=ci>>3;
+      if(cmd===7){if(cur)cur.push(cur[0],cur[1]);continue}
+      for(let k=0;k<cnt;k++){
+        const dx=rv(q),dy=rv(q);
+        x+=(dx>>>1)^-(dx&1); y+=(dy>>>1)^-(dy&1);
+        if(cmd===1){cur=[];parts.push(cur)}
+        cur.push(tx*4096+x*sc,ty*4096+y*sc);
+      }
     }
-    let pen=0;
-    if(st.heading!=null){let df=Math.abs(((ang-st.heading+540)%360)-180);df=Math.min(df,180-df);pen=df/90*14}
-    const score=dmin+pen;
-    if(!best||score<best.score)best={score,tags:w.tags||{}};
+    return parts;
+  };
+  let uid=0;
+  const feat=(name,s,e,keys,vals,sc)=>{
+    const q={i:s}; let type=0,gs=0,ge=0; const tags=[];
+    while(q.i<e){
+      const tag=rv(q),f=tag>>3,t=tag&7;
+      if(f===3&&t===0)type=rv(q);
+      else if(t===2&&(f===2||f===4)){const l=rv(q),en=q.i+l;if(f===2){while(q.i<en)tags.push(rv(q))}else{gs=q.i;ge=en}q.i=en}
+      else skip(q,t);
+    }
+    if(!ge)return;
+    if(name==='water'||name==='park'){if(type===3)for(const r of geom(gs,ge,sc))out[name].push(r);return}
+    if(type!==2)return;
+    const props={}; for(let i=0;i<tags.length;i+=2)props[keys[tags[i]]]=vals[tags[i+1]];
+    if(name==='transportation'){
+      if(!RD[props.class])return;
+      for(const r of geom(gs,ge,sc))out.roads.push({cls:props.class,p:r,id:tx+'/'+ty+'#'+(uid++)});
+    }else{
+      const nm=props.name||props.ref; if(!nm)return;
+      for(const r of geom(gs,ge,sc))out.names.push({name:nm,p:r});
+    }
+  };
+  const layer=(end)=>{
+    let name='',extent=4096; const keys=[],vals=[],feats=[];
+    while(p.i<end){
+      const tag=rv(p),f=tag>>3,t=tag&7;
+      if(t===2){
+        const l=rv(p),e=p.i+l;
+        if(f===1)name=dec.decode(b.subarray(p.i,e));
+        else if(f===2)feats.push([p.i,e]);
+        else if(f===3)keys.push(dec.decode(b.subarray(p.i,e)));
+        else if(f===4)vals.push(value(p.i,e));
+        p.i=e;
+      }else if(f===5&&t===0)extent=rv(p);
+      else skip(p,t);
+    }
+    if(!WANT[name])return;
+    for(const [s0,e0] of feats)feat(name,s0,e0,keys,vals,4096/extent);
+  };
+  while(p.i<b.length){
+    const tag=rv(p),f=tag>>3,t=tag&7;
+    if(f===3&&t===2){const l=rv(p),end=p.i+l;layer(end);p.i=end}else skip(p,t);
   }
-  if(!best)return {none:true};
-  const tg=best.tags;
-  let limit=parseMax(tg.maxspeed)||parseMax(tg['maxspeed:forward'])||null, est=false;
-  if(!limit&&EST[tg.highway]){limit=EST[tg.highway];est=true}
-  let name=tg.name||tg.ref||null;
-  if(!name){
-    try{const r=await fetchT(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&accept-language=tr&lat=${f.lat}&lon=${f.lon}`,{});
-      if(r.ok){const j=await r.json();name=(j.address&&(j.address.road||j.address.suburb))||null}}catch(e){}
-  }
-  return {name,limit,est};
+  return out;
 }
-function applyRoad(r){
-  const now=Date.now();
-  if(r&&!r.none){
-    st.road=r.name||st.road; st.limit=r.limit||null; st.est=!!r.est; st.limitAt=now;
-    if(st.est&&!S.inferred){st.limit=null;st.est=false}
-  }else if(now-st.limitAt>30000){st.limit=null;st.est=false}
+
+let TJ=store.get('hud.tj',null);
+async function tileUrl(){
+  if(!TJ||!TJ.fresh){
+    try{const r=await fetchT('https://tiles.openfreemap.org/planet',{},8000);const j=await r.json();TJ={u:j.tiles[0],fresh:1}}catch(e){if(!TJ)return null}
+    store.set('hud.tj',{u:TJ.u});
+  }
+  return TJ.u;
+}
+const TILES=new Map();
+function ensureTile(x,y){
+  const k=x+'/'+y; let T=TILES.get(k);
+  if(T&&(T.s==='ok'||T.s==='load'||(T.s==='err'&&Date.now()-T.t<10000)))return T;
+  T={s:'load',t:Date.now()}; TILES.set(k,T);
+  tileUrl().then(u=>{if(!u)throw 0;return fetchT(u.replace('{z}',Z).replace('{x}',x).replace('{y}',y),{},20000)})
+    .then(r=>{if(!r.ok)throw 0;return r.arrayBuffer()})
+    .then(buf=>{T.data=decodeTile(buf,x,y);T.s='ok';if(st.pos){mapTick(st.pos);updateMap(st.pos)}})
+    .catch(()=>{T.s='err';T.t=Date.now()});
+  return T;
+}
+function wantTiles(f){
+  const [gx,gy]=gpos(f.lat,f.lon), tx=Math.floor(gx/4096), ty=Math.floor(gy/4096);
+  const dx=gx/4096-tx<.5?-1:1, dy=gy/4096-ty<.5?-1:1;
+  return [[tx,ty],[tx+dx,ty],[tx,ty+dy],[tx+dx,ty+dy]];
+}
+let wantedOk=[];
+function mapTick(f){
+  const want=wantTiles(f), ok=[];
+  for(const [x,y] of want){const T=ensureTile(x,y);if(T.s==='ok')ok.push(T.data)}
+  wantedOk=ok;
+  const key=want.map(w=>w.join('/')).join('|')+':'+ok.length;
+  if(ok.length&&(key!==MAP.key||!MAP.a||hav(MAP.a,f)>350)){MAP.key=key;rebuildMap(f,ok)}
+  if(TILES.size>14)for(const [k,T] of TILES){if(T.s==='ok'&&!want.some(w=>w.join('/')===k)){TILES.delete(k);if(TILES.size<=10)break}}
+  roadTick(f); limitTick(f);
+}
+function rebuildMap(f,tiles){
+  setAnchor(f);
+  const a=MAP.a, lim=850/a.U, buf={a:[],b:[],c:[],d:[],e:[],w:[],pk:[]};
+  const emit=(arr,flat,close)=>{
+    let mnx=1e18,mxx=-1e18,mny=1e18,mxy=-1e18;
+    for(let i=0;i<flat.length;i+=2){const x=flat[i],y=flat[i+1];if(x<mnx)mnx=x;if(x>mxx)mxx=x;if(y<mny)mny=y;if(y>mxy)mxy=y}
+    if(mxx<a.gx-lim||mnx>a.gx+lim||mxy<a.gy-lim||mny>a.gy+lim)return;
+    let d='';
+    for(let i=0;i<flat.length;i+=2)d+=(i?'L':'M')+((flat[i]-a.gx)*a.U).toFixed(0)+' '+((flat[i+1]-a.gy)*a.U).toFixed(0);
+    arr.push(d+(close?'Z':''));
+  };
+  for(const t of tiles){
+    for(const r of t.water)emit(buf.w,r,1);
+    for(const r of t.park)emit(buf.pk,r,1);
+    for(const r of t.roads)emit(buf[RD[r.cls]],r.p,0);
+  }
+  $('#wat').setAttribute('d',buf.w.join('')); $('#prk').setAttribute('d',buf.pk.join(''));
+  for(const k of 'abcde')$('#rd'+k).setAttribute('d',buf[k].join(''));
+}
+
+// en yakın yolu yerelde bul → yol adı + (tahmini) hız limiti
+const nom={cache:new Map(),t:0,busy:false};
+function nearest(list,gx,gy,u,f,maxd){
+  let best=null,cur=null;
+  for(const r of list){
+    const P=r.p; let dmin=1e18,ang=0;
+    for(let i=0;i<P.length-2;i+=2){
+      const ax=P[i],ay=P[i+1],bx=P[i+2],by=P[i+3];
+      if((ax-gx>420&&bx-gx>420)||(ax-gx<-420&&bx-gx<-420))continue;
+      if((ay-gy>420&&by-gy>420)||(ay-gy<-420&&by-gy<-420))continue;
+      const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;
+      const t=l2?clamp(((gx-ax)*dx+(gy-ay)*dy)/l2,0,1):0;
+      const d=Math.hypot(ax+t*dx-gx,ay+t*dy-gy);
+      if(d<dmin){dmin=d;ang=Math.atan2(dx,-dy)/rad}
+    }
+    dmin*=u; if(dmin>maxd)continue;
+    let pen=0;
+    if(st.heading!=null){let df=Math.abs((((ang-st.heading)%360)+540)%360-180);df=Math.min(df,180-df);pen=df/90*14}
+    const e={r,sc:dmin+pen};
+    if(r.id!==undefined&&r.id===st.wayId)cur=e;
+    if(!best||e.sc<best.sc)best=e;
+  }
+  return {best,cur};
+}
+function roadTick(f){
+  if(!wantedOk.length)return;
+  const [gx,gy]=gpos(f.lat,f.lon), u=TU*Math.cos(f.lat*rad), now=Date.now();
+  const roads=[],names=[];
+  for(const t of wantedOk){for(const r of t.roads)if(r.cls!=='service')roads.push(r);for(const n of t.names)names.push(n)}
+  const R=nearest(roads,gx,gy,u,f,40);
+  if(R.best){
+    const pick=(R.cur&&R.cur.sc<=R.best.sc+7)?R.cur:R.best, cls=pick.r.cls;
+    st.wayId=pick.r.id; st.limitAt=now;
+    const o=ov.res&&now-ov.res.t<45000&&hav(ov.res.pos,f)<120?ov.res:null;
+    if(o&&o.limit){st.limit=o.limit;st.est=false}
+    else if(S.inferred&&EST[cls]){st.limit=EST[cls];st.est=true}
+    else{st.limit=null;st.est=false}
+    const N=nearest(names,gx,gy,u,f,30);
+    if(N.best)st.road=N.best.r.name;
+    else if(nom.cache.has(st.wayId))st.road=nom.cache.get(st.wayId);
+  }else if(now-st.limitAt>20000){st.limit=null;st.est=false;st.wayId=null}
   renderSign(); render();
+}
+// hız limiti: OSM maxspeed etiketi (Overpass, en fazla 10 sn'de bir ve 50 m+ hareketle; başarısız olursa tahmine düşer)
+const ov={busy:false,q:{t:0,pos:null},res:null};
+async function overpassLimit(f){
+  const q=`[out:json][timeout:8];way(around:25,${f.lat},${f.lon})["highway"]["maxspeed"];out geom tags 6;`;
+  for(const ep of OVERPASS){
+    try{
+      const r=await fetchT(ep,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}},8000);
+      if(!r.ok)continue;
+      const data=await r.json(); let best=null;
+      for(const w of data.elements||[]){
+        if(!w.geometry||w.geometry.length<2)continue;
+        let dmin=1e9,ang=0;
+        for(let i=0;i<w.geometry.length-1;i++){const a=w.geometry[i],b=w.geometry[i+1];const d=segDist(f,a,b);if(d<dmin){dmin=d;ang=bearing(a,b)}}
+        let pen=0;
+        if(st.heading!=null){let df=Math.abs(((ang-st.heading+540)%360)-180);df=Math.min(df,180-df);pen=df/90*14}
+        if(!best||dmin+pen<best.sc)best={sc:dmin+pen,t:w.tags||{}};
+      }
+      return {limit:best?(parseMax(best.t.maxspeed)||parseMax(best.t['maxspeed:forward'])):null};
+    }catch(e){}
+  }
+  return undefined;
+}
+function limitTick(f){
+  const now=Date.now();
+  if(ov.busy||now-ov.q.t<10000)return;
+  if(ov.q.pos&&hav(ov.q.pos,f)<50)return;
+  if(st.speed<3&&ov.q.pos)return;
+  ov.q={t:now,pos:{lat:f.lat,lon:f.lon}}; ov.busy=true;
+  overpassLimit(f).then(r=>{if(r!==undefined)ov.res={limit:r.limit,t:Date.now(),pos:{lat:f.lat,lon:f.lon}}}).finally(()=>{ov.busy=false});
 }
 
 /* ───────── rota (Nominatim arama + OSRM) ───────── */
@@ -643,11 +803,11 @@ function showManeuver(m,dist,name){
   $('#nd').textContent=d;
   $('#ns').textContent=name||'';
   $('#nav').classList.add('on'); $('#nav').classList.toggle('near',dist<150);
-  $('#navmap').classList.add('on'); $('#navmap').classList.toggle('near-turn',dist<150);
+  $('#navmap').classList.toggle('near-turn',dist<150);
   nav.dist=dist;
   document.querySelector('.compass').style.display='none';
 }
-function hideManeuver(){$('#nav').classList.remove('on');$('#navmap').classList.remove('on');nav.anchor=null;document.querySelector('.compass').style.display=''}
+function hideManeuver(){$('#nav').classList.remove('on');nav.dist=null;document.querySelector('.compass').style.display=''}
 function fmtNavDist(m){
   if(m>=1000)return (m/1000).toFixed(1).replace('.',',')+' km';
   if(m>=200)return Math.round(m/50)*50+' m';
@@ -662,9 +822,9 @@ async function startRoute(dest){
     if(!j.routes||!j.routes[0]){setNavMsg('Bu hedefe rota bulunamadı.');return false}
     const rt=j.routes[0];
     nav.route={steps:rt.legs[0].steps,geom:rt.geometry.coordinates.map(c=>({lon:c[0],lat:c[1]}))};
-    nav.idx=0; nav.gi=0; nav.anchor=null; nav.dest=dest; nav.off=0; nav.lastReroute=Date.now();
+    nav.idx=0; nav.gi=0; nav.drawRoute=null; nav.dest=dest; nav.off=0; nav.lastReroute=Date.now();
     $('#navLbl').textContent='Rota'; $('#navStop').style.display='';
-    navTick(f);
+    navTick(f); updateMap(f);
     return true;
   }catch(e){setNavMsg('Rota alınamadı. İnternet bağlantını kontrol et.');return false}
 }
@@ -680,46 +840,51 @@ function navTick(f){
   }
   const next=steps[Math.min(nav.idx+1,steps.length-1)];
   const m=next.maneuver, dist=hav(f,{lat:m.location[1],lon:m.location[0]});
-  if(m.type==='arrive'&&dist<20){showManeuver(m,dist,'');updateMap(f);setTimeout(stopRoute,6000);return}
+  if(m.type==='arrive'&&dist<20){showManeuver(m,dist,'');setTimeout(stopRoute,6000);return}
   showManeuver(m,dist,next.name||'');
-  updateMap(f);
   // off-route detection
   const g=nav.route.geom; let dmin=1e9;
   for(let i=0;i<g.length-1;i+=1){const d=segDist(f,g[i],g[i+1]);if(d<dmin)dmin=d;if(dmin<15)break}
   nav.off=dmin>70?nav.off+1:0;
   if(nav.off>=3&&Date.now()-nav.lastReroute>15000&&nav.dest){nav.lastReroute=Date.now();startRoute(nav.dest)}
 }
-function drawMap(f){
+function drawRoute(f){
   const g=nav.route.geom, steps=nav.route.steps;
   let gi=nav.gi||0, best=1e12;
   const lim=Math.min(g.length-1,gi+400);
   for(let i=gi;i<lim;i++){const d=segDist(f,g[i],g[i+1]);if(d<best){best=d;gi=i}}
   nav.gi=gi;
-  const K=Math.cos(f.lat*rad)*111320, M=110574;
-  const rel=p=>[(p.lon-f.lon)*K,-(p.lat-f.lat)*M];
-  const pts=[[0,0]]; let acc=0, prev=g[gi];
-  for(let i=gi+1;i<g.length&&acc<1400;i++){acc+=hav(prev,g[i]);prev=g[i];pts.push(rel(g[i]))}
+  const pts=[rel(f.lat,f.lon)]; let acc=0, prev=g[gi];
+  for(let i=gi+1;i<g.length&&acc<1400;i++){acc+=hav(prev,g[i]);prev=g[i];pts.push(rel(g[i].lat,g[i].lon))}
   const nx=steps[Math.min(nav.idx+1,steps.length-1)].maneuver.location;
-  const ml=[(nx[0]-f.lon)*K,-(nx[1]-f.lat)*M];
+  const ml=rel(nx[1],nx[0]);
   let mi=pts.length-1,bd=1e12;
   pts.forEach((q,i)=>{const d=(q[0]-ml[0])**2+(q[1]-ml[1])**2;if(d<bd){bd=d;mi=i}});
-  const D=a=>a.length<2?'':'M'+a.map(q=>q[0].toFixed(1)+' '+q[1].toFixed(1)).join('L');
-  $('#rtHi').setAttribute('d',D(pts.slice(0,mi+1)));
-  $('#rtGlow').setAttribute('d',D(pts.slice(0,mi+1)));
+  const D=arr=>arr.length<2?'':'M'+arr.map(q=>q[0].toFixed(1)+' '+q[1].toFixed(1)).join('L');
+  const hi=D(pts.slice(0,mi+1));
+  $('#rtHi').setAttribute('d',hi); $('#rtGlow').setAttribute('d',hi);
   $('#rtDim').setAttribute('d',D(pts.slice(mi)));
-  const mv=$('#mv'); mv.setAttribute('cx',ml[0].toFixed(1)); mv.setAttribute('cy',ml[1].toFixed(1));
-  nav.anchor={lat:f.lat,lon:f.lon}; nav.drawIdx=nav.idx;
-  return true;
+  const mv=$('#mv'); mv.setAttribute('cx',ml[0].toFixed(1)); mv.setAttribute('cy',ml[1].toFixed(1)); mv.style.display='';
+  nav.drawPos={lat:f.lat,lon:f.lon}; nav.drawIdx=nav.idx; nav.drawRoute=nav.route;
+}
+function clearRoute(){
+  ['rtHi','rtGlow','rtDim'].forEach(id=>$('#'+id).setAttribute('d',''));
+  $('#mv').style.display='none'; nav.drawRoute=null;
 }
 function updateMap(f){
-  const w=$('#world'); let fresh=false;
-  if(!nav.anchor||nav.drawIdx!==nav.idx||hav(nav.anchor,f)>250){drawMap(f);fresh=true}
-  const a=nav.anchor, K=Math.cos(a.lat*rad)*111320, M=110574;
-  const px=(f.lon-a.lon)*K, py=-(f.lat-a.lat)*M;
-  const R=clamp((nav.dist||200)*1.1+40,130,420), sc=(150/R).toFixed(4);
-  if(fresh)w.style.transition='none';
-  w.style.transform=`translate(100px,150px) rotate(${(-headU).toFixed(1)}deg) scale(${sc}) translate(${(-px).toFixed(1)}px,${(-py).toFixed(1)}px)`;
-  if(fresh){void w.getBoundingClientRect();w.style.transition=''}
+  if(!MAP.a)setAnchor(f);
+  const box=$('#navmap'), W=box.clientWidth, H=box.clientHeight;
+  if(S.map===false||!W||!H)return;
+  if(nav.route){
+    if(MAP.dirty||nav.drawRoute!==nav.route||nav.drawIdx!==nav.idx||!nav.drawPos||hav(nav.drawPos,f)>250)drawRoute(f);
+  }else if(nav.drawRoute)clearRoute();
+  const [x,y]=rel(f.lat,f.lon), px=900+x, py=900+y;
+  let R=clamp(240+st.speed*4.5,260,560);
+  if(nav.route&&nav.dist!=null)R=Math.min(R,Math.max(220,nav.dist*1.3+120));
+  const sc=(H*.72/R).toFixed(4), w=$('#world');
+  if(MAP.dirty)w.style.transition='none';
+  w.style.transform=`translate(${W/2}px,${H*.8}px) rotate(${(-headU).toFixed(1)}deg) scale(${sc}) translate(${-px.toFixed(1)}px,${-py.toFixed(1)}px)`;
+  if(MAP.dirty){void w.getBoundingClientRect();w.style.transition='';MAP.dirty=false}
 }
 const setNavMsg=t=>{$('#navMsg').textContent=t||''};
 async function search(){
@@ -801,9 +966,8 @@ function syncSettings(){
   $('#tolOut').textContent=S.tol;
 }
 $$('.sw').forEach(i=>i.addEventListener('change',()=>{
-  S[i.dataset.k]=i.checked; save(); applyMirror();
+  S[i.dataset.k]=i.checked; save(); applyMirror(); applyMap();
   if(i.dataset.k==='beep'&&i.checked){unlockAudio();setTimeout(beep,50)}
-  if(i.dataset.k==='demo'){location.reload()}
   if(i.dataset.k==='inferred'){st.limit=null;lastQ.t=0;renderSign();render()}
 }));
 $$('#themeSeg button').forEach(b=>b.onclick=()=>{S.theme=b.dataset.v;save();applyTheme();syncSettings()});
@@ -846,6 +1010,13 @@ function startDemo(){
   step(); setInterval(step,1000);
 }
 
+/* sabit konumla test: ?at=enlem,boylam&hd=yön&v=hız&to=enlem,boylam (gerçek Overpass/OSRM verisi) */
+function startAt(){
+  const [lat,lon]=P.get('at').split(',').map(Number), v=+(P.get('v')||40), h=+(P.get('hd')||0);
+  const fix=()=>handleFix({lat,lon,acc:5,t:Date.now(),v,h});
+  fix(); setInterval(fix,1000);
+  if(P.get('to')){const [a,b]=P.get('to').split(',').map(Number);startRoute({lat:a,lon:b})}
+}
 /* ───────── açılış: kadran testi ───────── */
 function intro(done){
   if(P.get('intro')==='0'){document.body.classList.remove('boot');booting=false;return done&&done()}
@@ -869,13 +1040,13 @@ function intro(done){
 }
 
 /* ───────── başlat ───────── */
-applyTheme(); applyMirror(); renderSign(); renderStats(); tick();
+applyTheme(); applyMirror(); applyMap(); renderSign(); renderStats(); tick();
 const hint=$('#hint');
 intro(()=>{
   render(); renderHeading();
   hint.classList.add('on'); setTimeout(()=>hint.classList.remove('on'),4000);
   if(P.get('intro')!=='0')showBar();
-  if(S.demo)startDemo(); else startGPS();
+  if(P.get('at')){window.__hud={st,MAP,TILES,get w(){return wantedOk}};startAt()} else if(S.demo)startDemo(); else startGPS();
 });
 wake();
 // ilk dokunuşta tam ekran (tarayıcıda; kurulu uygulamada zaten tam ekran)

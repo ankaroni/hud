@@ -347,7 +347,7 @@ const store={
 };
 const P=new URLSearchParams(location.search);
 const S=Object.assign({mirror:true,theme:'auto',tol:5,beep:false,inferred:true,map:true},store.get('hud.settings',{}));
-S.demo=!!P.get('demo');
+delete S.demo; S.demo=false;
 if(P.get('mirror')==='0') S.mirror=false;
 if(P.get('theme')) S.theme=P.get('theme');
 const save=()=>store.set('hud.settings',S);
@@ -547,12 +547,12 @@ function tick(){
   el.clock.textContent=pad(n.getHours())+':'+pad(n.getMinutes());
   const age=Date.now()-st.lastFix;
   let bars=0;
-  if(st.lastFix&&age<6000){const a=st.acc||99;bars=a<=8?4:a<=15?3:a<=30?2:1}
+  if(st.lastFix&&age<15000){const a=st.acc||99;bars=a<=8?4:a<=15?3:a<=30?2:1}
   [...el.sig.children].forEach((b,i)=>b.classList.toggle('on',i<bars));
   el.sig.classList.toggle('bad',bars<=1);
   el.sigTxt.textContent=bars?'GPS':'GPS yok';
-  el.gauge.classList.toggle('stale',!!st.lastFix&&age>6000);
-  if(!S.demo&&st.lastFix&&age>6000&&st.speed!==0){st.speed=0;render()}
+  el.gauge.classList.toggle('stale',!!st.lastFix&&age>15000);
+  if(!S.demo&&st.lastFix&&age>15000&&st.speed!==0){st.speed=0;render()}
   if(S.theme==='auto')applyTheme();
   if(!booting)renderStats();
 }
@@ -973,43 +973,6 @@ $$('.sw').forEach(i=>i.addEventListener('change',()=>{
 $$('#themeSeg button').forEach(b=>b.onclick=()=>{S.theme=b.dataset.v;save();applyTheme();syncSettings()});
 $$('.step button').forEach(b=>b.onclick=()=>{S.tol=clamp(S.tol+ +b.dataset.d,0,30);save();$('#tolOut').textContent=S.tol;render()});
 
-/* ───────── demo ───────── */
-function demoRoute(lat,lon,hd,leg,right){
-  const K=111320*Math.cos(lat*rad), M=110574;
-  const mv=(p,h,d)=>({lat:p.lat+d*Math.cos(h*rad)/M,lon:p.lon+d*Math.sin(h*rad)/K});
-  const A={lat,lon}, B=mv(A,hd,leg), h2=hd+(right?90:-90), C=mv(B,h2,900), h3=h2+(right?-60:60), D=mv(C,h3,800);
-  const geom=[]; const seg=(a,b)=>{const n=Math.ceil(hav(a,b)/25);for(let i=0;i<n;i++)geom.push({lat:a.lat+(b.lat-a.lat)*i/n,lon:a.lon+(b.lon-a.lon)*i/n})};
-  seg(A,B);seg(B,C);seg(C,D);geom.push(D);
-  const L=p=>[p.lon,p.lat];
-  return {geom,steps:[
-    {maneuver:{location:L(A),type:'depart'},name:'Barbaros Bulvarı'},
-    {maneuver:{location:L(B),type:'turn',modifier:right?'right':'left'},name:'Bağdat Caddesi'},
-    {maneuver:{location:L(C),type:'turn',modifier:right?'slight left':'slight right'},name:'Moda Caddesi'},
-    {maneuver:{location:L(D),type:'arrive'},name:''}]};
-}
-function startDemo(){
-  let t=0, lat=41.0082, lon=28.9784, hd=70;
-  const fixedV=P.get('v')!=null?+P.get('v'):null, fixedL=P.get('lim')!=null?+P.get('lim'):null;
-  const roads=[['Barbaros Bulvarı',70],['Büyükdere Caddesi',50],['O-1 Otoyolu',120],['Bağdat Caddesi',60]];
-  const navOn=P.get('nav')!=='0';
-  if(navOn){
-    const leg=P.get('nd')!=null?+P.get('nd'):700, right=(P.get('turn')||'right').includes('right');
-    nav.route=demoRoute(lat,lon,hd,leg,right); nav.idx=0; nav.gi=0; nav.dest=null; $('#navStop').style.display='';
-  }
-  const step=()=>{
-    t++;
-    const v=fixedV!=null?fixedV:78+52*Math.sin(t/9);
-    hd=(hd+(fixedV!=null||navOn?0:1.8))%360;
-    const dm=v/3.6;
-    lat+=dm*Math.cos(hd*rad)/110574; lon+=dm*Math.sin(hd*rad)/(111320*Math.cos(lat*rad));
-    handleFix({lat,lon,acc:6,t:Date.now(),v,h:hd});
-    const r=roads[Math.floor(t/20)%roads.length];
-    st.road=r[0]; st.limit=fixedL!=null?fixedL:r[1]; st.est=false; st.limitAt=Date.now();
-    renderSign(); render();
-  };
-  step(); setInterval(step,1000);
-}
-
 /* sabit konumla test: ?at=enlem,boylam&hd=yön&v=hız&to=enlem,boylam (gerçek Overpass/OSRM verisi) */
 function startAt(){
   const [lat,lon]=P.get('at').split(',').map(Number), v=+(P.get('v')||40), h=+(P.get('hd')||0);
@@ -1046,17 +1009,19 @@ intro(()=>{
   render(); renderHeading();
   hint.classList.add('on'); setTimeout(()=>hint.classList.remove('on'),4000);
   if(P.get('intro')!=='0')showBar();
-  if(P.get('at')){window.__hud={st,MAP,TILES,get w(){return wantedOk}};startAt()} else if(S.demo)startDemo(); else startGPS();
+  if(P.get('at')){window.__hud={st,MAP,TILES,get w(){return wantedOk}};startAt()} else startGPS();
 });
 wake();
 // ilk dokunuşta tam ekran (tarayıcıda; kurulu uygulamada zaten tam ekran)
 const standalone=matchMedia('(display-mode: fullscreen)').matches||matchMedia('(display-mode: standalone)').matches||navigator.standalone;
-if(!standalone&&!P.get('demo')){
+if(!standalone){
   const once=()=>{document.removeEventListener('click',once);fullscreen()};
   document.addEventListener('click',once);
 }
 if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
+  let reloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(reloaded||!navigator.serviceWorker.controller)return;reloaded=true;location.reload()});
 }
 })();
 </script>
